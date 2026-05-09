@@ -1,0 +1,62 @@
+Reference Source License
+
+Copyright (c) 2026 Jordan Dea-Mattson and TheAgencyGroup
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to:
+
+  1. View and study the source code for personal, educational, or
+     evaluation purposes.
+  2. Contribute improvements back to the original repository via
+     pull requests or patches.
+
+The following restrictions apply:
+
+  1. The Software may not be used, in whole or in part, to create or
+     distribute a competing product or service without prior written
+     permission from the copyright holder.
+  2. The Software may not be redistributed, sublicensed, or sold,
+     whether in source or binary form, without prior written permission
+     from the copyright holder.
+  3. Modified versions of the Software may not be distributed without
+     prior written permission from the copyright holder.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+TRADEMARK NOTICE
+
+The following are trademarks of Jordan Dea-Mattson and TheAgencyGroup:
+
+  Core:     The Agency, TheAgency, TheAgencyGroup
+  Core:     Valueflow
+  Apps:     This Happened, ThisHappened, this-happened
+  Apps:     Breadcrumb, breadcrumb
+  Apps:     MDPal, mdpal, MockAndMark, mockandmark
+  Mascots:  Attack Kittens, Attack Kitties
+
+All rights reserved. No license to use any of the above trademarks is granted
+under the Reference Source License above. Use of these marks — in product
+names, service names, branding, or any identifying capacity — requires prior
+written permission from the trademark holders.
+
+---
+
+NOTE ON FUTURE RE-LICENSING
+
+This LICENSE applies to the `breadcrumb` workstream only. The sibling
+workstream `this-happened` carries its own LICENSE file. Either workstream
+may be re-licensed independently in the future without affecting the other.
+
+For the `breadcrumb` library specifically: re-licensing under MIT or another
+permissive open-source license is under consideration, since broader
+adoption of the trace-ID pattern feeds value back into the integrated
+"This Happened!" experience. Any re-license decision will be made by the
+copyright holder.
