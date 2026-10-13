@@ -1,0 +1,2158 @@
+<title>This Happened!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: header + three tabs (Report it / My reports / Agent queue), three views of one report record.
+   "Report it" = a host app with an embedded assistant inside a browser frame; the ! and ? controls sit top-right in the app bar.
+   Evidence-marker yellow is the only loud color; it marks everything This Happened! adds. The Claude Code pane is a terminal, dark in both themes. */
+:root{
+  --bg:#ECEFF3; --surface:#FFFFFF; --sunk:#F4F6F8; --ink:#17202A; --muted:#56626D; --line:#D3DAE1;
+  --marker:#F2B705; --marker-ink:#1D1700;
+  --danger:#B42F27; --danger-soft:#FBE8E6; --ok:#1B7553; --ok-soft:#E0F2EA;
+  --app:#2D56C9; --on-app:#FFFFFF; --app-soft:#E8EDFB;
+  --term-bg:#10161C; --term-ink:#D7E0E8; --term-dim:#7F8D99; --term-ok:#55C99A; --term-err:#F2776B; --term-acc:#F4C230; --term-code:#9DB5FF;
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1217; --surface:#151C23; --sunk:#10161C; --ink:#E4E9EE; --muted:#95A2AE; --line:#26313B;
+  --marker:#F4C230; --marker-ink:#1D1700;
+  --danger:#F2776B; --danger-soft:#3A1E1B; --ok:#55C99A; --ok-soft:#13302A;
+  --app:#86A2FF; --on-app:#0D1217; --app-soft:#1C2541;
+  --term-bg:#0A0F13; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0D1217; --surface:#151C23; --sunk:#10161C; --ink:#E4E9EE; --muted:#95A2AE; --line:#26313B;
+  --marker:#F4C230; --marker-ink:#1D1700;
+  --danger:#F2776B; --danger-soft:#3A1E1B; --ok:#55C99A; --ok-soft:#13302A;
+  --app:#86A2FF; --on-app:#0D1217; --app-soft:#1C2541;
+  --term-bg:#0A0F13; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);padding-inline:16px;padding-block:20px 48px}
+.wrap{max-width:1240px;margin:0 auto;display:grid;gap:18px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+p{margin:0}
+.mono{font-family:var(--f-mono);font-size:.86em}
+button,select,textarea,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--marker);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.muted{color:var(--muted)}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px}
+.brand h1{font-size:clamp(2rem,5vw,3rem);font-weight:800;font-stretch:118%;letter-spacing:-.01em}
+.brand h1 .bang{background:var(--marker);color:var(--marker-ink);padding:0 .14em;margin-left:.04em;display:inline-block;transform:rotate(-3deg)}
+.brand p{color:var(--muted);margin-top:6px;max-width:64ch}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px;flex-wrap:wrap}
+.tab{border:0;background:transparent;padding:8px 15px;border-radius:999px;font-weight:600;display:flex;gap:8px;align-items:center;white-space:nowrap}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.tab .pill{font-size:11px;font-weight:700;background:var(--marker);color:var(--marker-ink);min-width:20px;padding:1px 6px;border-radius:999px;text-align:center}
+
+/* sequence hint */
+.steps{display:flex;flex-wrap:wrap;gap:8px 20px;color:var(--muted);font-size:14px;list-style:none;padding:0;margin:0}
+.steps li{display:flex;gap:8px;align-items:center}
+.steps b{color:var(--ink);font-weight:600}
+
+/* evidence marker: the numbered yellow tent */
+.mk{display:inline-grid;place-items:center;min-width:24px;height:22px;padding:0 5px;background:var(--marker);color:var(--marker-ink);font:700 12px/1 var(--f-display);font-stretch:110%;clip-path:polygon(16% 0,84% 0,100% 100%,0 100%);flex:none}
+
+/* browser frame */
+.frame{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;height:680px;display:flex;flex-direction:column;container-type:inline-size}
+.chrome{display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid var(--line);background:var(--sunk)}
+.dots{display:flex;gap:6px}.dots i{width:10px;height:10px;border-radius:50%;background:var(--line);display:block}
+.url{font:13px var(--f-mono);color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px 12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+
+/* host app */
+.app-bar{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--line)}
+.app-logo{font:700 18px var(--f-body);color:var(--app);letter-spacing:-.01em}
+.app-search{flex:1;max-width:320px;border:1px solid var(--line);background:var(--sunk);border-radius:8px;padding:6px 10px;font-size:14px;color:var(--muted);min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.app-bar .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.hq{display:flex;gap:4px;padding:3px;border:1px solid var(--line);border-radius:999px;background:var(--sunk)}
+.ctl{position:relative;width:30px;height:30px;border-radius:50%;border:0;display:grid;place-items:center;font:800 16px/1 var(--f-display);font-stretch:110%}
+.ctl.bang{background:var(--marker);color:var(--marker-ink)}
+.ctl.q{background:var(--app-soft);color:var(--app)}
+.ctl.q[aria-pressed="true"]{background:var(--app);color:var(--on-app)}
+.ctl::after{content:attr(data-tip);position:absolute;top:calc(100% + 8px);right:0;background:var(--ink);color:var(--bg);font:500 12px/1.3 var(--f-body);padding:5px 9px;border-radius:6px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s;z-index:20}
+.ctl:hover::after,.ctl:focus-visible::after{opacity:1}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-size:12px;font-weight:600}
+.app{display:grid;grid-template-columns:160px minmax(0,1fr) 340px;flex:1;min-height:0}
+.app.no-asst{grid-template-columns:160px minmax(0,1fr)}
+.app-nav{border-right:1px solid var(--line);padding:16px 12px;display:flex;flex-direction:column;gap:4px;font-size:14px}
+.app-nav a{color:var(--muted);text-decoration:none;padding:6px 10px;border-radius:7px}
+.app-nav a.on{background:var(--app-soft);color:var(--app);font-weight:600}
+.app-main{padding:20px 20px 70px;display:grid;gap:14px;align-content:start;min-width:0;overflow-y:auto}
+.app-head{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.app-head h2{font:600 22px var(--f-body)}
+.app-tools{display:flex;gap:8px;flex-wrap:wrap}
+.app-tools select{padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.btn-app{background:var(--app);color:var(--on-app);border:0;border-radius:8px;padding:8px 14px;font-weight:600}
+.btn-app[disabled]{opacity:.7;cursor:progress}
+.btn-ghost{background:transparent;border:1px solid var(--line);border-radius:7px;padding:4px 10px;font-size:13px}
+.app-sub{color:var(--muted);font-size:14px}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+.app table{min-width:500px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--sunk)}
+tr:last-child td{border-bottom:0}
+td.num{font-variant-numeric:tabular-nums;text-align:right}th.num{text-align:right}
+.st{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px}
+.st.Paid{background:var(--ok-soft);color:var(--ok)}.st.Due{background:var(--app-soft);color:var(--app)}.st.Overdue{background:var(--danger-soft);color:var(--danger)}
+.app-toast{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:9px;font-size:14px;max-width:calc(100% - 40px);box-shadow:0 6px 24px rgba(0,0,0,.18);z-index:8}
+.app-toast.err{background:var(--danger);color:#fff}
+.pulse{animation:pulse 1.1s ease-out 2;border-radius:8px}
+@keyframes pulse{0%{box-shadow:0 0 0 0 var(--marker)}100%{box-shadow:0 0 0 10px transparent}}
+
+/* assistant */
+.asst{border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--surface)}
+.asst-h{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.asst-h b{font-weight:600}
+.asst-h .x{margin-left:auto;border:0;background:transparent;font-size:20px;line-height:1;color:var(--muted);padding:2px 6px}
+.spark{width:22px;height:22px;border-radius:6px;background:var(--app);color:var(--on-app);display:grid;place-items:center;font-size:12px;font-weight:700}
+.msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.m{max-width:92%;padding:9px 12px;border-radius:12px;font-size:14px;line-height:1.45}
+.m.u{align-self:flex-end;background:var(--app);color:var(--on-app);border-bottom-right-radius:4px}
+.m.a{align-self:flex-start;background:var(--sunk);border-bottom-left-radius:4px}
+.m.typing{color:var(--muted);letter-spacing:.2em}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip-btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 11px;font-size:13px;text-align:left}
+.chip-btn:hover{border-color:var(--app);color:var(--app)}
+.tools{align-self:flex-start;font-size:12.5px;color:var(--muted);max-width:92%}
+.tools summary{cursor:pointer}
+.tools ul{margin:6px 0 0;padding:8px 10px 8px 24px;background:var(--sunk);border-radius:8px;display:grid;gap:4px}
+.tools code{font-family:var(--f-mono);color:var(--ink)}
+.tools .bad{color:var(--danger);font-weight:600}
+.offer{align-self:stretch;border:1px solid var(--line);border-left:3px solid var(--marker);border-radius:10px;padding:10px 12px;display:grid;gap:8px;font-size:13.5px}
+.offer ul{margin:0;padding-left:18px;color:var(--muted)}
+.offer .row{display:flex;gap:8px;flex-wrap:wrap}
+.howto{align-self:stretch;border:1px solid var(--line);border-left:3px solid var(--app);border-radius:10px;padding:10px 12px;display:grid;gap:8px;font-size:13.5px}
+.howto ol{margin:0;padding-left:20px;display:grid;gap:3px}
+.howto .row{display:flex;gap:8px;flex-wrap:wrap}
+.btn-y{background:var(--marker);color:var(--marker-ink);border:0;border-radius:8px;padding:6px 12px;font-weight:700;font-size:13px}
+.btn-b{background:var(--app);color:var(--on-app);border:0;border-radius:8px;padding:6px 12px;font-weight:600;font-size:13px}
+.btn-o{background:transparent;border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:13px}
+.composer{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}
+.composer input{flex:1;min-width:0;border:1px solid var(--line);background:var(--sunk);border-radius:9px;padding:8px 11px}
+.composer button{border:0;background:var(--app);color:var(--on-app);border-radius:9px;padding:0 14px;font-weight:600}
+
+/* report drawer */
+.drawer{position:absolute;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--surface);border-left:1px solid var(--line);box-shadow:-12px 0 40px rgba(0,0,0,.18);display:flex;flex-direction:column;z-index:12}
+.dr-head{padding:16px 20px 12px;border-bottom:1px solid var(--line);display:grid;gap:6px}
+.dr-head h3{font-size:24px;font-weight:800;font-stretch:115%;display:flex;gap:10px;align-items:center}
+.dr-head p{color:var(--muted);font-size:14px}
+.dr-body{padding:14px 20px;overflow-y:auto;display:grid;gap:12px;align-content:start;flex:1}
+.dr-body label.f{font-weight:600;font-size:14px;display:grid;gap:6px}
+textarea{width:100%;min-height:76px;resize:vertical;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:var(--sunk)}
+.ev{border:1px solid var(--line);border-radius:var(--r)}
+.ev summary{list-style:none;display:flex;gap:10px;align-items:center;padding:9px 12px;cursor:pointer}
+.ev summary::-webkit-details-marker{display:none}
+.ev .ev-t{flex:1;min-width:0;display:grid}
+.ev .ev-t b{font-weight:600;font-size:14px}
+.ev .ev-t span{color:var(--muted);font-size:13px}
+.ev input[type=checkbox]{width:18px;height:18px;accent-color:var(--ink)}
+.ev pre{margin:0;border-top:1px solid var(--line);padding:10px 12px;background:var(--sunk);font:12px/1.55 var(--f-mono);overflow-x:auto;max-height:220px;border-radius:0 0 var(--r) var(--r)}
+.ev.off .ev-t{opacity:.5}
+.redact{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:flex-start}
+.redact b{color:var(--ink)}
+.dr-foot{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
+.btn-send{background:var(--marker);color:var(--marker-ink);border:0;border-radius:9px;padding:10px 18px;font-weight:700}
+.btn-cancel{background:transparent;border:1px solid var(--line);border-radius:9px;padding:10px 16px}
+
+.app{position:relative}
+@container (max-width: 900px){
+  .app{grid-template-columns:minmax(0,1fr) 300px}
+  .app.no-asst{grid-template-columns:minmax(0,1fr)}
+  .app-nav,.app-search{display:none}
+}
+@container (max-width: 640px){
+  .app,.app.no-asst{grid-template-columns:minmax(0,1fr)}
+  .asst{position:absolute;top:0;right:0;bottom:0;width:100%;z-index:10}
+}
+.ask{border:1px solid var(--line);border-left:3px solid var(--app);border-radius:10px;padding:12px 14px;display:grid;gap:8px}
+.ask b{font-weight:600}
+
+/* invoice detail (opened from the invoice number) */
+.inv-link{border:0;background:none;padding:0;font:inherit;color:var(--app);text-decoration:underline;text-underline-offset:2px}
+.inv-card{border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:grid;gap:10px}
+.inv-card[hidden],.inv-card [hidden]{display:none}
+.inv-h{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.inv-h .x{margin-left:auto;border:0;background:transparent;font-size:20px;line-height:1;color:var(--muted);padding:2px 6px}
+.inv-lines{display:grid;gap:4px;font-size:14px}
+.inv-lines div{display:flex;justify-content:space-between;gap:10px;font-variant-numeric:tabular-nums}
+.inv-lines .tot{border-top:1px solid var(--line);padding-top:4px;font-weight:600}
+.inv-add,.inv-acts{display:flex;gap:8px;flex-wrap:wrap}
+.inv-add input{flex:1 1 140px;min-width:0;border:1px solid var(--line);background:var(--sunk);border-radius:8px;padding:7px 10px}
+.inv-add input.amt{flex:0 1 110px}
+.inv-rem{display:grid;gap:8px}
+.inv-rem textarea{min-height:64px}
+.inv-note:empty{display:none}
+
+/* how do I: card in the assistant, spotlight and agent cursor over the app */
+.hdi{align-self:stretch;border:1px solid var(--line);border-left:3px solid var(--app);border-radius:10px;padding:10px 12px;display:grid;gap:9px;font-size:13.5px}
+.hdi [hidden]{display:none}
+.hdi-h{display:flex;gap:8px;align-items:center}
+.hdi-q{display:flex;gap:6px}
+.hdi-q input{flex:1;min-width:0;border:1px solid var(--line);background:var(--sunk);border-radius:8px;padding:6px 9px}
+.hdi-q .btn-b[disabled]{opacity:.6;cursor:progress}
+.hdi-status{color:var(--muted);font-size:13px}
+.hdi-status:empty{display:none}
+.hdi-status.err{color:var(--danger)}
+.hdi-row{display:flex;gap:6px;flex-wrap:wrap}
+.hdi-tasks{display:grid;gap:6px}
+.hdi-tasks .chip-btn[aria-pressed="true"]{border-color:var(--app);background:var(--app-soft);color:var(--app)}
+.hdi-task,.hdi-none{display:grid;gap:8px}
+.hdi-ans{background:var(--sunk);border-radius:8px;padding:8px 10px}
+.hdi-steps,.hdi-log{margin:0;padding-left:20px;display:grid;gap:3px}
+.hdi-log{color:var(--muted)}
+.hdi-log li.now{color:var(--ink);font-weight:600}
+.hdi-perm{display:grid;gap:5px;font-size:12px}
+.hdi-perm div{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.hdi-perm .lbl{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;min-width:72px}
+.hdi-perm .c{border:1px solid var(--line);border-radius:999px;padding:1px 8px;background:var(--surface)}
+.hdi-perm .c.ask{border-color:var(--marker);background:var(--sunk)}
+.hdi-perm .c.no{background:var(--danger-soft);border-color:transparent;color:var(--danger)}
+.hdi-confirm{display:grid;gap:8px;border:1px solid var(--marker);border-radius:8px;padding:8px 10px;background:var(--sunk)}
+.hdi-result{display:grid;gap:8px;border-radius:8px;padding:8px 10px;background:var(--ok-soft)}
+.hdi-result.fail{background:var(--danger-soft)}
+.hdi-foot{display:flex;gap:4px 8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px;color:var(--muted);font-size:12.5px}
+.hdi-foot button{border:0;background:transparent;color:var(--app);text-decoration:underline;padding:2px 4px;font-size:12.5px}
+.hdi-spot{position:absolute;border-radius:9px;box-shadow:0 0 0 9999px rgba(8,12,16,.58);outline:2px solid var(--marker);outline-offset:2px;z-index:14;pointer-events:none;transition:left .3s ease,top .3s ease,width .3s ease,height .3s ease}
+.hdi-spot.ring{box-shadow:none;outline-color:var(--app)}
+.hdi-tip{position:absolute;z-index:15;width:min(300px,calc(100% - 24px));background:var(--surface);color:var(--ink);border:1px solid var(--line);border-top:3px solid var(--marker);border-radius:10px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.28);display:grid;gap:8px;font-size:13.5px}
+.hdi-tip .k{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.hdi-cursor{position:absolute;z-index:16;width:22px;height:24px;pointer-events:none;color:var(--app);transition:left .55s cubic-bezier(.3,.7,.3,1),top .55s cubic-bezier(.3,.7,.3,1)}
+.hdi-cursor svg{display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
+.hdi-cursor span{position:absolute;left:16px;top:18px;background:var(--app);color:var(--on-app);font:600 11px/1 var(--f-body);padding:3px 6px;border-radius:5px;white-space:nowrap}
+.hdi-cursor.click::after{content:"";position:absolute;left:-9px;top:-9px;width:18px;height:18px;border-radius:50%;border:2px solid var(--app);animation:hdiclick .45s ease-out forwards}
+@keyframes hdiclick{from{transform:scale(.4);opacity:1}to{transform:scale(2.2);opacity:0}}
+@media (prefers-reduced-motion: reduce){.hdi-spot,.hdi-cursor{transition:none}.hdi-cursor.click::after{animation:none}}
+
+/* shared panels */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:grid;gap:14px;min-width:0;align-content:start}
+.sec-h{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.sec-h h3{font-size:17px;font-weight:700;font-stretch:105%}
+.sec-h .sub{color:var(--muted);font-size:13px;margin-left:auto}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{font-size:11px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--sunk);border:1px solid var(--line);color:var(--ink)}
+.chip.y{background:var(--marker);color:var(--marker-ink);border-color:transparent}
+.grid2{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px;align-items:start}
+.grid-mine{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:18px;align-items:start}
+.col{display:grid;gap:18px;min-width:0}
+.sim{font-size:12px;color:var(--muted)}
+
+/* status */
+.sp{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.s0{background:var(--sunk);color:var(--ink);border:1px solid var(--line)}
+.s1{background:var(--app-soft);color:var(--app)}
+.s2{background:var(--marker);color:var(--marker-ink)}
+.s3{background:var(--ok-soft);color:var(--ok)}
+.stepper{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.stepper li{display:grid;gap:6px;font-size:12.5px;color:var(--muted)}
+.stepper li::before{content:"";height:6px;border-radius:3px;background:var(--line)}
+.stepper li.done::before{background:var(--ink)}
+.stepper li.now{color:var(--ink);font-weight:600}
+.stepper li.now::before{background:var(--marker)}
+.stepper li.now.fixed::before{background:var(--ok)}
+
+/* my reports */
+.rlist{display:grid;gap:8px}
+.rcard{display:grid;gap:6px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;width:100%}
+.rcard[aria-current="true"]{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.rcard .r1{display:flex;gap:8px;align-items:center}
+.rcard .r1 .mono{color:var(--muted)}
+.rcard .r1 .dot{width:8px;height:8px;border-radius:50%;background:var(--marker);margin-left:auto}
+.rcard b{font-weight:600;line-height:1.35}
+.rcard .r3{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.upd{list-style:none;margin:0;padding:0;display:grid}
+.upd li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.upd li:last-child{border-bottom:0}
+.upd .when{grid-column:2;font-size:12.5px;color:var(--muted)}
+.upd p{grid-column:2}
+.upd .sp{grid-row:1 / span 3;align-self:start}
+.confirm{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--ok-soft);border-radius:10px;padding:12px 14px}
+.confirm b{font-weight:600}
+.sent{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.sent li{display:flex;gap:10px;align-items:flex-start;font-size:14px}
+.sent li span{min-width:0;overflow-wrap:anywhere}
+.note{font-size:15px;border-left:3px solid var(--marker);padding-left:12px}
+
+/* agent queue */
+.qtable tbody tr{cursor:pointer}
+.qtable tbody tr[aria-selected="true"] td{background:var(--sunk)}
+.qtable tbody tr[aria-selected="true"] td:first-child{box-shadow:inset 3px 0 0 var(--marker)}
+.qtable td.t{white-space:normal;min-width:220px}
+.qtable{min-width:640px}
+.wi-head{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+.wi-head .ttl{display:grid;gap:6px;min-width:0}
+.wi-head h2{font-size:clamp(1.35rem,3vw,1.9rem);font-weight:800;font-stretch:106%}
+.stats{display:flex;gap:22px;flex-wrap:wrap}
+.stats div{display:grid}
+.stats b{font:800 26px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.stats span{font-size:12px;color:var(--muted);max-width:14ch;line-height:1.3;margin-top:4px}
+.sawdid{display:grid;grid-template-columns:1fr 1.4fr;gap:14px}
+.sawdid > div{border-radius:var(--r);padding:14px 16px;display:grid;gap:6px;align-content:start}
+.saw{background:var(--sunk);border:1px dashed var(--line)}
+.did{background:var(--ink);color:var(--bg)}
+.label{font-size:12px;letter-spacing:.07em;text-transform:uppercase;font-weight:600;opacity:.75}
+.saw blockquote{margin:0;font-size:17px;font-style:italic}
+.did p:last-child{font-size:16px;font-weight:500}
+.diag ul,.diag ol{margin:0;padding-left:20px;display:grid;gap:8px}
+.diag li .mk{margin-left:6px;transform:scale(.85);vertical-align:middle}
+.term{background:var(--term-bg);color:var(--term-ink);border-radius:12px;padding:14px 16px;font:12.5px/1.65 var(--f-mono);min-height:280px;max-height:420px;overflow:auto;display:grid;align-content:start;gap:2px}
+.term .l{white-space:pre-wrap;overflow-wrap:anywhere}
+.term .cmd{color:var(--term-ink)} .term .cmd::before{content:"› ";color:var(--term-acc)}
+.term .ok::before{content:"● ";color:var(--term-ok)}
+.term .warn::before{content:"● ";color:var(--term-acc)}
+.term .err::before{content:"● ";color:var(--term-err)}
+.term .dim{color:var(--term-dim)}
+.term .code{color:var(--term-code);padding-left:16px}
+.term .stat{color:var(--term-acc)} .term .stat::before{content:"⇢ "}
+.term .cursor{display:inline-block;width:8px;height:15px;background:var(--term-ink);vertical-align:-2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.term-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn-run{background:var(--ink);color:var(--bg);border:0;border-radius:9px;padding:9px 14px;font-weight:600}
+.btn-run[disabled],.btn-o[disabled]{opacity:.45;cursor:not-allowed}
+.perm{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.perm ul{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px}
+.perm h4{margin:0 0 6px;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.codes{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.codes li{display:grid;gap:2px;font-size:13px}
+.codes .p{font-family:var(--f-mono);font-size:12.5px;overflow-wrap:anywhere}
+.codes .why{color:var(--muted)}
+/* live triage */
+.wf-row.cited{box-shadow:inset 3px 0 0 var(--marker)}
+.wf-row.cited .wf-label{padding-left:calc(var(--d) * 14px + 9px)}
+.tri-err{border:1px solid var(--line);border-left:3px solid var(--danger);border-radius:10px;padding:12px 14px;display:grid;gap:8px}
+.tri-err .row{display:flex;gap:8px;flex-wrap:wrap}
+.tri-live{display:grid;gap:14px}
+.scn{display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr) auto;gap:12px;align-items:end}
+.scn label{display:grid;gap:6px;font-weight:600;font-size:14px}
+.scn select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.scn textarea{min-height:56px}
+@media (max-width:900px){.scn{grid-template-columns:minmax(0,1fr)}}
+
+/* waterfall */
+.wf{display:grid;gap:4px}
+.wf-row{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.4fr) 62px;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.wf-label{display:grid;padding-left:calc(var(--d) * 14px);min-width:0}
+.wf-label .svc{font-weight:600;font-size:14px}
+.wf-label .op{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.wf-label .id{font-size:11.5px;color:var(--muted)}
+.wf-track{position:relative;height:14px;background:var(--sunk);border-radius:4px}
+.wf-bar{position:absolute;top:2px;bottom:2px;border-radius:3px;background:var(--app)}
+.wf-row.bad .wf-bar{background:var(--danger)}
+.wf-row.bad .svc{color:var(--danger)}
+.wf-row.warn .wf-bar{background:var(--marker)}
+.wf-dur{font:12px var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+.wf-axis{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.4fr) 62px;gap:10px}
+.wf-ticks{position:relative;height:18px;font:11px var(--f-mono);color:var(--muted)}
+.wf-ticks span{position:absolute;top:2px;transform:translateX(-50%)}
+.wf-ticks span:first-child{transform:none}
+.chain{font:12px/1.7 var(--f-mono);color:var(--muted);overflow-wrap:anywhere}
+.chain b{color:var(--ink);font-weight:500}
+.bundle summary{cursor:pointer;font-weight:600;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.bundle pre{margin:12px 0 0;font:12px/1.55 var(--f-mono);background:var(--sunk);border-radius:8px;padding:12px;overflow:auto;max-height:420px}
+.copy{margin-left:auto;background:transparent;border:1px solid var(--line);border-radius:7px;padding:4px 10px;font-size:13px;font-weight:500}
+.empty{color:var(--muted);font-size:14px}
+@media (prefers-reduced-motion: reduce){.pulse,.term .cursor{animation:none}}
+
+@media (max-width:900px){
+  .grid2,.grid-mine,.sawdid,.perm{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:560px){
+  .wf-row,.wf-axis{grid-template-columns:minmax(0,1fr) 58px}
+  .wf-track{grid-column:1 / -1;grid-row:2}
+  .wf-axis .spc{display:none}
+  .wf-ticks{grid-column:1 / -1}
+  .tab{padding:7px 11px}
+  .frame{height:640px}
+  .stepper li{font-size:11.5px}
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>This Happened<span class="bang">!</span></h1>
+      <p>Report a problem in one tap, or by telling the assistant. Follow it to a fix. Hand an agent everything it needs to do the work.</p>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Views">
+      <button class="tab" role="tab" id="tab-app" aria-selected="true" aria-controls="view-app">Report it</button>
+      <button class="tab" role="tab" id="tab-mine" aria-selected="false" aria-controls="view-mine">My reports <span class="pill" id="pill-mine" hidden></span></button>
+      <button class="tab" role="tab" id="tab-queue" aria-selected="false" aria-controls="view-queue">Agent queue <span class="pill" id="pill-queue" hidden></span></button>
+    </div>
+  </header>
+
+  <!-- ===================== Report it ===================== -->
+  <section id="view-app" role="tabpanel" aria-labelledby="tab-app" class="wrap" style="gap:12px">
+    <ol class="steps">
+      <li><span class="mk">1</span><span>In the assistant on the right, ask it to <b>export March invoices</b></span></li>
+      <li><span class="mk">2</span><span>Tell it <b>"It never arrived"</b>, or tap <b>!</b> at the top right</span></li>
+      <li><span class="mk">3</span><span>Check what gets sent, then follow it in <b>My reports</b> and <b>Agent queue</b></span></li>
+    </ol>
+    <div class="frame" id="frame">
+      <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="url" id="url">app.tallyho.example/invoices?month=2026-03</span></div>
+      <div class="app-bar">
+        <span class="app-logo">tallyho</span>
+        <span class="app-search">Search invoices and customers</span>
+        <div class="right">
+          <div class="hq" role="group" aria-label="Help and reporting">
+            <button class="ctl bang" id="ctl-bang" data-tip="This happened! Report a problem" aria-label="This happened! Report a problem">!</button>
+            <button class="ctl q" id="ctl-q" data-tip="How do I…? Ask the assistant" aria-label="How do I? Ask the assistant" aria-pressed="false">?</button>
+          </div>
+          <span class="avatar" title="Maya Lin">ML</span>
+        </div>
+      </div>
+      <div class="app" id="app">
+        <nav class="app-nav" aria-label="Tallyho">
+          <a href="#" data-nav="Dashboard">Dashboard</a>
+          <a href="#" class="on" data-nav="Invoices">Invoices</a>
+          <a href="#" data-nav="Customers">Customers</a>
+          <a href="#" data-nav="Settings">Settings</a>
+        </nav>
+        <main class="app-main">
+          <div class="app-head">
+            <h2>Invoices</h2>
+            <div class="app-tools">
+              <label for="month" class="sr">Month</label>
+              <select id="month">
+                <option value="2026-03">March 2026</option>
+                <option value="2026-02">February 2026</option>
+              </select>
+              <button id="export" class="btn-app">Export PDF</button>
+            </div>
+          </div>
+          <p class="app-sub" id="appsub"></p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Invoice</th><th>Customer</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead>
+              <tbody id="rows"></tbody>
+            </table>
+          </div>
+          <section class="inv-card" id="inv-detail" hidden aria-label="Invoice">
+            <div class="inv-h"><b class="mono" id="inv-title"></b><span id="inv-cust"></span><span class="st" id="inv-st"></span><button class="x" id="inv-x" aria-label="Close invoice">×</button></div>
+            <div class="inv-lines" id="inv-lines"></div>
+            <div class="inv-add" id="inv-add" hidden>
+              <label for="inv-ldesc" class="sr">Line description</label><input id="inv-ldesc" autocomplete="off" placeholder="Description">
+              <label for="inv-lamt" class="sr">Amount</label><input id="inv-lamt" class="amt" inputmode="decimal" autocomplete="off" placeholder="Amount">
+              <button class="btn-app" id="inv-lsave">Save line</button>
+            </div>
+            <div class="inv-rem" id="inv-rem" hidden>
+              <label for="inv-rmsg" class="sr">Reminder note</label><textarea id="inv-rmsg" placeholder="Add a short note. Tallyho adds the amount, due date and a payment link."></textarea>
+              <div><button class="btn-app" id="inv-rsend">Send</button></div>
+            </div>
+            <div class="inv-acts"><button class="btn-ghost" id="inv-addline">Add line</button><button class="btn-ghost" id="inv-remind">Send reminder…</button></div>
+            <p class="app-sub inv-note" id="inv-note"></p>
+          </section>
+        </main>
+        <aside class="asst" id="asst" aria-label="Assistant">
+          <div class="asst-h"><span class="spark">AI</span><b>Assistant</b><span class="muted" style="font-size:13px" id="asst-mode"></span><button class="x" id="asst-x" aria-label="Close assistant">×</button></div>
+          <div class="msgs" id="msgs" aria-live="polite"></div>
+          <form class="composer" id="composer">
+            <label for="chatin" class="sr">Message the assistant</label>
+            <input id="chatin" autocomplete="off" placeholder="Ask, or tell it what went wrong">
+            <button type="submit">Send</button>
+          </form>
+        </aside>
+      </div>
+      <div class="app-toast" id="apptoast" role="status" hidden></div>
+      <aside class="drawer" id="drawer" hidden aria-label="Report what happened">
+        <div class="dr-head">
+          <h3><span class="mk" style="height:26px;min-width:28px;font-size:15px">!</span>This happened.</h3>
+          <p id="dr-sub"></p>
+        </div>
+        <div class="dr-body">
+          <label class="f" for="note">What were you trying to do?
+            <textarea id="note" placeholder="Optional. For example: exporting March invoices for my accountant."></textarea>
+          </label>
+          <div id="evlist" style="display:grid;gap:8px"></div>
+          <p class="redact" id="redact"></p>
+        </div>
+        <div class="dr-foot">
+          <button class="btn-cancel" id="cancel">Cancel</button>
+          <button class="btn-send" id="send">Send report</button>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===================== My reports ===================== -->
+  <section id="view-mine" role="tabpanel" aria-labelledby="tab-mine" hidden>
+    <div class="grid-mine">
+      <div class="panel">
+        <div class="sec-h"><h3>Your reports</h3><span class="sub">Maya Lin · Tallyho</span></div>
+        <div class="rlist" id="rlist"></div>
+      </div>
+      <div class="panel" id="rdetail"></div>
+    </div>
+  </section>
+
+  <!-- ===================== Agent queue ===================== -->
+  <section id="view-queue" role="tabpanel" aria-labelledby="tab-queue" hidden class="wrap" style="gap:18px"></section>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = t => new Date(t).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false});
+const sec = ms => ms >= 1000 ? (ms/1000).toFixed(ms >= 10000 ? 1 : 2).replace(/\.0+$/,'') + ' s' : ms + ' ms';
+const short = id => id.slice(0, 8) + '…' + id.slice(-4);
+const money = n => n.toLocaleString('en-US', {style:'currency', currency:'USD'});
+function ago(t) {
+  const s = Math.max(0, (Date.now() - t) / 1000);
+  if (s < 45) return 'just now';
+  if (s < 3600) return Math.round(s / 60) + ' min ago';
+  if (s < 86400) return Math.round(s / 3600) + ' h ago';
+  const d = Math.round(s / 86400); return d + (d === 1 ? ' day ago' : ' days ago');
+}
+
+// UUID7: 48-bit Unix ms timestamp, version 7, random tail. Sorts by time without a shared clock.
+function uuid7(ms = Date.now()) {
+  const b = new Uint8Array(16);
+  crypto.getRandomValues(b);
+  let t = ms;
+  for (let i = 5; i >= 0; i--) { b[i] = t % 256; t = Math.floor(t / 256); }
+  b[6] = (b[6] & 0x0f) | 0x70;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;
+}
+
+// ================= Host app: Tallyho (made up for the demo) =================
+const USER = {name:'Maya Lin', email:'maya.lin@acme-co.example'};
+const TOKEN = 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1XzgxMiJ9.k3Q9vX2pR7';
+const FLAGS = {pdf_v2_renderer:true, bulk_export:true, assistant_tools:true};
+const APP = 'Tallyho web 3.14.2 (build 8817)';
+const ASSISTANT = 'Tallyho assistant · claude-sonnet-5-5 · prompt v12';
+const MONTHS = {'2026-03':{label:'March 2026', count:47, base:2041}, '2026-02':{label:'February 2026', count:12, base:1994}};
+const CUSTOMERS = ['Northwind Bakery','Kestrel Freight','Lumen Dental','Orchard & Pike','Harbor Yoga','Copperline Studio','Bluebird Florists'];
+const ERR_TEXT = 'Something went wrong. Try again later.';
+
+const state = {month:'2026-03', paid:new Set(), toast:null, busy:false, asstOpen:true, lastAsstExport:null};
+const invFees = {}, invReminders = {};  // extra invoice lines and queued reminders, by invoice ID
+function invoicesFor(m) {
+  const M = MONTHS[m], off = m === '2026-03' ? 0 : 3;
+  return Array.from({length:6}, (_, i) => {
+    const id = 'INV-' + (M.base + i);
+    const st = state.paid.has(id) ? 'Paid' : ['Paid','Due','Overdue'][i % 3];
+    return {id, customer:CUSTOMERS[(i + off) % 7], amount:((i * 739 + (off ? 860 : 1210)) % 2400) + 180.5 + (invFees[id]?.amt || 0), status:st};
+  });
+}
+
+// Recorder: what This Happened! keeps in memory while the app runs.
+const makeRecorder = () => ({actions:[], logs:[], net:[], convo:[]});
+const live = makeRecorder();
+const act = (r, t, type, target, detail = '') => r.actions.push({t, type, target, detail});
+function log(r, t, level, msg, echo) {
+  r.logs.push({t, level, msg});
+  if (echo) (console[level] || console.log)('[tallyho] ' + msg);
+}
+
+// Simulated backend. Every hop gets a UUID7 and points at its parent: that chain is the Breadcrumb trail.
+function simExport(r, t0, month, via) {
+  const n = MONTHS[month].count, fail = n > 20 && FLAGS.pdf_v2_renderer;
+  const id = k => uuid7(t0 + k);
+  let hops, total;
+  if (via === 'assistant') {
+    const ui = id(0), as = id(20), ls = id(640), gw = id(820), inv = id(835), db = id(845), pdf = id(1020);
+    total = fail ? 31120 : 4290;
+    hops = [
+      {id:ui, parent:null, service:'web (browser)', op:'send chat message', start:0, dur:total, status:'ok'},
+      {id:as, parent:ui, service:'assistant-svc', op:'agent turn (claude-sonnet-5-5)', start:20, dur:total - 30, status:'ok',
+        warn:fail, note:fail ? 'replied "sent" after a tool error' : ''},
+      {id:ls, parent:as, service:'invoice-svc', op:`tool invoices.list (${n} found)`, start:640, dur:118, status:'200'},
+      {id:gw, parent:as, service:'api-gateway', op:'tool pdf.export → POST /api/invoices/export', start:820, dur:fail ? 30240 : 3398, status:fail ? '504' : '200'},
+      {id:inv, parent:gw, service:'invoice-svc', op:`export batch (${n} invoices)`, start:835, dur:fail ? 30205 : 3366, status:fail ? 'error' : '200'},
+      {id:db, parent:inv, service:'postgres', op:`SELECT invoices (${n} rows)`, start:845, dur:96, status:'ok'},
+      {id:pdf, parent:inv, service:'pdf-renderer', op:`render v2, ${n} pages`, start:1020, dur:fail ? 30000 : 3150, status:fail ? 'timeout' : '200', note:fail ? 'deadline exceeded at 30,000 ms' : ''},
+    ];
+  } else {
+    const ui = id(0), gw = id(12), inv = id(31), db = id(40), pdf = id(214);
+    total = fail ? 30262 : 3421;
+    hops = [
+      {id:ui, parent:null, service:'web (browser)', op:'click "Export PDF"', start:0, dur:total, status:fail ? 'error' : 'ok'},
+      {id:gw, parent:ui, service:'api-gateway', op:'POST /api/invoices/export', start:12, dur:total - 14, status:fail ? '504' : '200'},
+      {id:inv, parent:gw, service:'invoice-svc', op:`export batch (${n} invoices)`, start:31, dur:fail ? 30205 : 3366, status:fail ? 'error' : '200'},
+      {id:db, parent:inv, service:'postgres', op:`SELECT invoices (${n} rows)`, start:40, dur:96, status:'ok'},
+      {id:pdf, parent:inv, service:'pdf-renderer', op:`render v2, ${n} pages`, start:214, dur:fail ? 30000 : 3150, status:fail ? 'timeout' : '200', note:fail ? 'deadline exceeded at 30,000 ms' : ''},
+    ];
+  }
+  const call = {id:hops[0].id, t:t0, kind:'export', via:via || 'button', method:'POST', url:'/api/invoices/export?month=' + month,
+    status:fail ? 504 : 200, dur:total, count:n, headers:{'Authorization':TOKEN, 'X-Breadcrumb':hops[0].id}, hops};
+  r.net.push(call);
+  return call;
+}
+function simMarkPaid(r, t0, id) {
+  const ui = uuid7(t0), gw = uuid7(t0 + 9), inv = uuid7(t0 + 22);
+  r.net.push({id:ui, t:t0, kind:'update', method:'PATCH', url:`/api/invoices/${id}`, status:200, dur:142, headers:{'Authorization':TOKEN, 'X-Breadcrumb':ui},
+    hops:[
+      {id:ui, parent:null, service:'web (browser)', op:'click "Mark paid"', start:0, dur:142, status:'ok'},
+      {id:gw, parent:ui, service:'api-gateway', op:`PATCH /api/invoices/${id}`, start:9, dur:131, status:'200'},
+      {id:inv, parent:gw, service:'invoice-svc', op:'update status = paid', start:22, dur:104, status:'200'},
+    ]});
+}
+
+// ---------- App UI ----------
+function renderApp() {
+  const M = MONTHS[state.month];
+  $('#month').value = state.month;
+  $('#appsub').textContent = `Showing 6 of ${M.count} invoices for ${M.label}`;
+  $('#url').textContent = `app.tallyho.example/invoices?month=${state.month}`;
+  $('#rows').innerHTML = invoicesFor(state.month).map(v => `<tr>
+    <td class="mono"><button class="inv-link" data-inv="${v.id}" aria-label="Open ${v.id}">${v.id}</button></td><td>${esc(v.customer)}</td><td class="num">${money(v.amount)}</td>
+    <td><span class="st ${v.status}">${v.status}</span>${invReminders[v.id] && v.status !== 'Paid' ? ' <span class="st Due">Reminded</span>' : ''}</td>
+    <td>${v.status === 'Paid' ? '' : `<button class="btn-ghost" data-pay="${v.id}">Mark paid</button>`}</td></tr>`).join('');
+  if (invOpen) renderInvoice();
+}
+let toastTimer;
+function showToast(text, err) {
+  const el = $('#apptoast');
+  state.toast = {text, err, t:Date.now()};
+  el.textContent = text; el.className = 'app-toast' + (err ? ' err' : ''); el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, err ? 8000 : 3800);
+}
+function setMonth(m) {
+  if (state.month === m) return;
+  state.month = m;
+  act(live, Date.now(), 'select', 'Month filter', MONTHS[m].label);
+  renderApp();
+}
+function markPaid(id, via) {
+  const t = Date.now();
+  act(live, t, 'click', via ? 'Assistant: mark paid' : 'Mark paid', id);
+  simMarkPaid(live, t, id);
+  log(live, t + 140, 'info', `invoice ${id} marked paid`, true);
+  state.paid.add(id); renderApp();
+  if (!via) showToast(`Marked ${id} paid`);
+}
+function highlight(el) { if (!el) return; el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); el.scrollIntoView({block:'nearest', behavior:'smooth'}); setTimeout(() => el.classList.remove('pulse'), 2400); }
+
+$('#month').addEventListener('change', e => setMonth(e.target.value));
+$('#rows').addEventListener('click', e => { const id = e.target.closest('[data-pay]')?.dataset.pay; if (id) markPaid(id); });
+document.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', e => {
+  e.preventDefault();
+  act(live, Date.now(), 'click', 'Nav', a.dataset.nav);
+  showToast(`${a.dataset.nav} isn't part of this demo.`);
+}));
+$('#export').addEventListener('click', () => {
+  if (state.busy) return;
+  const t = Date.now(), M = MONTHS[state.month];
+  act(live, t, 'click', 'Export PDF', `${M.label}, ${M.count} invoices`);
+  log(live, t, 'info', `export started: month=${state.month} count=${M.count} user=${USER.email}`, true);
+  state.busy = true;
+  const btn = $('#export'); btn.disabled = true; btn.textContent = 'Preparing PDF…';
+  const call = simExport(live, t, state.month, 'button');
+  // The real request hangs for 30 s; the demo compresses it to 2 s.
+  setTimeout(() => {
+    state.busy = false; btn.disabled = false; btn.textContent = 'Export PDF';
+    if (call.status >= 500) {
+      log(live, Date.now(), 'error', `Export failed: 504 Gateway Timeout (breadcrumb ${call.id})`, true);
+      act(live, Date.now(), 'saw', 'Error message', ERR_TEXT);
+      showToast(ERR_TEXT, true);
+    } else {
+      log(live, Date.now(), 'info', `export ready: tallyho-${state.month}.pdf (${M.count} pages)`, true);
+      showToast(`Downloaded tallyho-${state.month}.pdf`);
+    }
+  }, 2000);
+});
+window.addEventListener('error', e => log(live, Date.now(), 'error', 'Uncaught: ' + e.message));
+
+// ---------- Invoice detail: add a line, queue a reminder ----------
+let invOpen = null;
+function openInvoice(id, quiet) {
+  if (!quiet) act(live, Date.now(), 'click', 'Invoice', id);
+  invOpen = id;
+  $('#inv-add').hidden = true; $('#inv-rem').hidden = true;
+  $('#inv-ldesc').value = $('#inv-lamt').value = $('#inv-rmsg').value = '';
+  renderInvoice();
+}
+function renderInvoice() {
+  const v = invoicesFor(state.month).find(x => x.id === invOpen);
+  if (!v) { invOpen = null; $('#inv-detail').hidden = true; return; }
+  const fee = invFees[v.id], sent = invReminders[v.id];
+  $('#inv-title').textContent = v.id;
+  $('#inv-cust').textContent = v.customer;
+  $('#inv-st').className = 'st ' + v.status; $('#inv-st').textContent = v.status;
+  $('#inv-lines').innerHTML = `<div><span>Services</span><span>${money(v.amount - (fee?.amt || 0))}</span></div>`
+    + (fee ? `<div><span>${esc(fee.desc)}</span><span>${money(fee.amt)}</span></div>` : '')
+    + `<div class="tot"><span>Total</span><span>${money(v.amount)}</span></div>`;
+  $('#inv-remind').hidden = v.status === 'Paid';
+  $('#inv-note').textContent = sent && v.status !== 'Paid' ? `Reminder to ${v.customer} queued at ${fmt(sent)}. Tallyho waits 30 seconds before emailing.` : '';
+  $('#inv-detail').hidden = false;
+}
+$('#rows').addEventListener('click', e => { const id = e.target.closest('[data-inv]')?.dataset.inv; if (id) openInvoice(id); });
+$('#inv-x').addEventListener('click', () => { invOpen = null; $('#inv-detail').hidden = true; });
+$('#inv-addline').addEventListener('click', () => { $('#inv-add').hidden = false; $('#inv-rem').hidden = true; $('#inv-ldesc').focus(); });
+$('#inv-remind').addEventListener('click', () => { $('#inv-rem').hidden = false; $('#inv-add').hidden = true; $('#inv-rmsg').focus(); });
+$('#inv-lsave').addEventListener('click', () => {
+  const amt = Math.round(parseFloat($('#inv-lamt').value.replace(/[^\d.]/g, '')) * 100) / 100;
+  if (!(amt > 0)) { $('#inv-note').textContent = 'Enter an amount for the line.'; return $('#inv-lamt').focus(); }
+  const desc = $('#inv-ldesc').value.trim() || 'Late fee';
+  invFees[invOpen] = {desc, amt};
+  act(live, Date.now(), 'click', 'Save line', `${invOpen}: ${desc}, ${money(amt)}`);
+  $('#inv-add').hidden = true; $('#inv-ldesc').value = $('#inv-lamt').value = '';
+  renderApp();
+  showToast(`Added "${desc}" to ${invOpen}`);
+});
+$('#inv-rsend').addEventListener('click', () => {
+  const v = invoicesFor(state.month).find(x => x.id === invOpen); if (!v) return;
+  const t = Date.now();
+  invReminders[v.id] = t;
+  act(live, t, 'click', 'Send reminder', v.id);
+  log(live, t, 'info', `reminder queued: invoice=${v.id} customer=${v.customer}`, true);
+  $('#inv-rem').hidden = true; $('#inv-rmsg').value = '';
+  renderApp();
+  showToast(`Reminder to ${v.customer} queued. It goes out in 30 seconds.`);
+});
+
+// ================= Assistant (the agentic part of the host app) =================
+const msgs = $('#msgs');
+function setAsst(open) {
+  state.asstOpen = open;
+  $('#asst').hidden = !open;
+  $('#app').classList.toggle('no-asst', !open);
+  $('#ctl-q').setAttribute('aria-pressed', String(open));
+}
+function scrollChat() { msgs.scrollTop = msgs.scrollHeight; }
+function addHTML(html) { const d = document.createElement('div'); d.innerHTML = html.trim(); const el = d.firstElementChild; msgs.appendChild(el); scrollChat(); return el; }
+function chipsHTML(chips) { return chips?.length ? `<div class="chips">${chips.map(c => `<button class="chip-btn" data-say="${esc(c)}">${esc(c)}</button>`).join('')}</div>` : ''; }
+function userSays(text) {
+  const t = Date.now();
+  addHTML(`<div class="m u">${esc(text)}</div>`);
+  live.convo.push({t, role:'user', text});
+  act(live, t, 'chat', 'Assistant', text);
+  msgs.querySelectorAll('.chips').forEach(c => c.remove());
+  route(text);
+}
+function assistantSays(text, {chips, extra, delay = 650} = {}) {
+  const typing = addHTML(`<div class="m a typing">• • •</div>`);
+  return new Promise(res => setTimeout(() => {
+    typing.remove();
+    addHTML(`<div class="m a">${esc(text)}</div>`);
+    live.convo.push({t:Date.now(), role:'assistant', text});
+    if (extra) addHTML(extra);
+    if (chips) addHTML(chipsHTML(chips));
+    res();
+  }, delay));
+}
+msgs.addEventListener('click', e => {
+  const say = e.target.closest('[data-say]')?.dataset.say;
+  if (say) return userSays(say);
+  const a = e.target.closest('[data-act]')?.dataset.act;
+  if (a) asstAction(a, e.target.closest('[data-act]'));
+});
+$('#composer').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = $('#chatin').value.trim(); if (!v) return;
+  $('#chatin').value = ''; userSays(v);
+});
+$('#asst-x').addEventListener('click', () => setAsst(false));
+$('#ctl-q').addEventListener('click', () => {
+  setAsst(true);
+  $('#asst-mode').textContent = '· How do I…?';
+  act(live, Date.now(), 'click', 'How do I? (?)');
+  msgs.querySelectorAll('.chips').forEach(c => c.remove());
+  assistantSays('What do you want to do? Ask in your own words, or pick one. I can show you where it is, or do it for you.', {delay:250})
+    .then(() => hdiOpen().querySelector('.hdi-in').focus());
+});
+
+function route(text) {
+  const s = text.toLowerCase();
+  if (/never arrived|didn.?t (arrive|work|get|come)|not (arrive|work)|nothing (came|arrived)|where is|wrong|broken|haven.?t (got|received)|report|bug|this happened|failed|not right/.test(s)) return complain();
+  if (/^how|how do i|how can i|how to/.test(s)) {
+    if (/paid/.test(s)) return howTo('paid');
+    const k = hdiMatch(s);
+    if (k) return assistantSays('I can help with that. I can show you where it is, or do it for you.', {delay:400}).then(() => hdiOpen({task:k, q:text}));
+    return assistantSays("I don't have a guide for that yet. I've passed the question on, so the Tallyho team knows people are asking.", {chips:['How do I export invoices?']});
+  }
+  if (/export|pdf|accountant/.test(s)) {
+    if (/feb/.test(s)) setMonth('2026-02'); else if (/march|\bmar\b/.test(s)) setMonth('2026-03');
+    return assistantExport();
+  }
+  if (/thank|great|ok\b|cool/.test(s)) return assistantSays("You're welcome.");
+  return assistantSays('In this demo I can export invoices, mark them paid, or show you how to do things.',
+    {chips:['Export March invoices and email them to my accountant', 'How do I mark an invoice paid?']});
+}
+
+function assistantExport() {
+  const t0 = Date.now(), M = MONTHS[state.month];
+  log(live, t0, 'info', `assistant: tool invoices.list month=${state.month}`, true);
+  const call = simExport(live, t0, state.month, 'assistant');
+  const fail = call.status >= 500;
+  const typing = addHTML(`<div class="m a typing">• • •</div>`);
+  setTimeout(() => {
+    typing.remove();
+    const tGw = call.hops.find(h => h.service === 'api-gateway');
+    const tools = [
+      {t:t0 + 640, role:'tool', tool:'invoices.list', args:`month=${state.month}`, status:'ok', result:`${M.count} invoices`, trail:call.hops[2].id},
+      {t:t0 + 820, role:'tool', tool:'pdf.export', args:`month=${state.month}, send_to=accountant`, status:fail ? 'error: 504 after 30 s' : 'ok', result:fail ? null : 'emailed', trail:tGw.id},
+    ];
+    live.convo.push(...tools);
+    if (fail) log(live, Date.now(), 'error', `assistant: tool pdf.export failed: 504 Gateway Timeout (breadcrumb ${tGw.id})`, true);
+    addHTML(`<details class="tools"><summary>Used ${tools.length} tools</summary><ul>${tools.map(x =>
+      `<li><code>${x.tool}</code> ${esc(x.args)} · <span class="${/error/.test(x.status) ? 'bad' : ''}">${esc(x.status)}</span></li>`).join('')}</ul></details>`);
+    // The bug on purpose: the assistant reports success without checking the tool result.
+    const reply = `Done! I've emailed the ${M.label} invoices (${M.count}) to your accountant as a PDF.`;
+    addHTML(`<div class="m a">${esc(reply)}</div>`);
+    live.convo.push({t:Date.now(), role:'assistant', text:reply});
+    state.lastAsstExport = {call, fail};
+    addHTML(chipsHTML(fail ? ['It never arrived', 'Thanks!'] : ['Thanks!']));
+  }, 2200);
+}
+
+function complain() {
+  const f = state.lastAsstExport;
+  const extra = `<div class="offer">
+    <b>Want me to report this?</b>
+    <span class="muted">I'll include:</span>
+    <ul><li>our conversation and the tools I used</li><li>your last few steps in Tallyho</li><li>the calls behind them, with their trail IDs</li><li>the app log, flags, browser and app version</li></ul>
+    <div class="row"><button class="btn-y" data-act="review">Review and send</button><button class="btn-o" data-act="notnow">Not now</button></div>
+  </div>`;
+  if (f?.fail) return assistantSays(`You're right, and I'm sorry. The PDF export timed out, and I told you it was sent anyway. That shouldn't happen.`, {extra});
+  return assistantSays(`Sorry about that. I can't see what went wrong from here, but I can send everything to the Tallyho team.`, {extra});
+}
+
+function howTo(which) {
+  const H = {
+    paid:{steps:['Find the invoice in the list.', 'Click Mark paid at the end of its row.', 'The status changes to Paid and the customer gets a receipt.'], show:'paid'},
+    export:{steps:['Pick the month in the filter at the top right.', 'Click Export PDF.', 'The PDF downloads. Exports over 20 invoices can take a while.'], show:'export'},
+  }[which];
+  const extra = `<div class="howto"><ol>${H.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
+    <div class="row"><button class="btn-o" data-act="show-${H.show}">Show me</button><button class="btn-b" data-act="do-${H.show}">Do it for me</button></div></div>`;
+  return assistantSays(which === 'paid' ? 'Here is how to mark an invoice paid:' : 'Here is how to export invoices:', {extra});
+}
+
+function asstAction(a, btn) {
+  if (a === 'show-paid') { setAsstForNarrow(); return highlight(document.querySelector('[data-pay]')); }
+  if (a === 'show-export') { setAsstForNarrow(); highlight($('#month')); return setTimeout(() => highlight($('#export')), 700); }
+  if (a === 'do-paid') {
+    const id = document.querySelector('[data-pay]')?.dataset.pay;
+    if (!id) return assistantSays('Everything on this page is already paid.');
+    markPaid(id, true); highlight([...document.querySelectorAll('#rows tr')].find(tr => tr.textContent.includes(id)));
+    return assistantSays(`Done. ${id} is marked paid, and the customer will get a receipt.`);
+  }
+  if (a === 'do-export') return assistantExport();
+  if (a === 'review') {
+    const M = MONTHS[state.month];
+    const note = state.lastAsstExport?.fail
+      ? `Asked the assistant to export ${M.label} invoices and email them to my accountant. It said they were sent, but nothing arrived.`
+      : '';
+    return openDrawer({origin:'conversation', note});
+  }
+  if (a === 'notnow') { btn.closest('.offer').remove(); return assistantSays('OK. If you change your mind, tap ! at the top right.'); }
+  if (a === 'open-mine') { selMine = btn.dataset.key; return selectTab('mine'); }
+}
+function setAsstForNarrow() { if ($('#frame').clientWidth <= 640) setAsst(false); }
+
+// ================= How do I…? (the ? control: answer it, show it, or do it) =================
+// Three canned tasks over the real Tallyho UI. "Show me" spotlights each element in turn; "Do it for me" drives a visible cursor.
+// Inside claude.ai with the sample capability, Claude maps a free-text question to a task. Anywhere else, a keyword match does.
+const HDI_STOP = {stop:true};
+const HDI = {speed:1, sample:null, card:null, task:null, q:'', ctl:null, tour:null, run:null, undo:[], last:null, layer:null, focus:null, ring:false, closedAsst:false};
+const HDI_SOFT = ['not_granted', 'sampling_disabled', 'capability_disabled', 'not_declared', 'capability_removed'];
+const HDI_HARD = {rate_limited:'Claude is busy right now.', upstream_error:"Couldn't reach Claude.", invalid_json:"Claude's reply didn't make sense to me.",
+  empty_completion:'Claude sent back an empty reply.', refused:"Claude wouldn't answer that one."};
+const hdiWait = ms => new Promise(r => setTimeout(r, ms * HDI.speed));
+const hdiTarget = () => { const vs = invoicesFor(state.month); return vs.find(v => v.status === 'Overdue') || vs.find(v => v.status !== 'Paid') || null; };
+const hdiLink = id => document.querySelector(`#rows [data-inv="${id}"]`);
+function hdiPrep(id, sub) {  // open an invoice (and one of its panels) for a walkthrough, without recording a click
+  if (invOpen !== id || $('#inv-detail').hidden) openInvoice(id, true);
+  $('#inv-add').hidden = sub !== 'add'; $('#inv-rem').hidden = sub !== 'rem';
+}
+const hdiNoUnpaid = [{el:() => $('#rows'), text:'Everything on this page is paid. Open an unpaid invoice by clicking its number.'}];
+const HDI_TASKS = {
+  'late-fee':{title:'Add a late fee to an invoice', kw:/late.?fee|late charge|\bfees?\b|penalt|interest|surcharge|charge (more|extra)/,
+    how:'Open the invoice from its number, click Add line, describe it as a late fee with an amount, then Save line.',
+    steps:['Click the invoice number to open it.', 'Click Add line.', 'Describe it ("Late fee") and enter the amount.', 'Click Save line. The total updates.'],
+    show:v => v ? [
+      {el:() => hdiLink(v.id), text:`Open the invoice by clicking its number. ${v.id} is ${v.status.toLowerCase()}, so it's the one to charge.`},
+      {el:() => $('#inv-addline'), text:'Click Add line.', prep:() => hdiPrep(v.id)},
+      {el:() => $('#inv-add'), text:'Describe the line, like "Late fee", and enter the amount.', prep:() => hdiPrep(v.id, 'add')},
+      {el:() => $('#inv-lsave'), text:'Click Save line. The fee shows on the invoice and its total goes up.', prep:() => hdiPrep(v.id, 'add')},
+    ] : hdiNoUnpaid,
+    async do(r, v) {
+      if (!v) return {text:'Every invoice on this page is paid, so there is nothing to add a late fee to.'};
+      await r.say(`Opening ${v.id} (${v.customer}, ${v.status.toLowerCase()}).`);
+      await r.click(hdiLink(v.id));
+      await r.say('Adding a line to the invoice.');
+      await r.click($('#inv-addline'));
+      await r.say('Describing the line.');
+      await r.type($('#inv-ldesc'), 'Late fee (30+ days)');
+      await r.say('Entering the amount: $25.00.');
+      await r.type($('#inv-lamt'), '25.00');
+      await r.say('Saving the line.');
+      const before = invFees[v.id];
+      await r.click($('#inv-lsave'));
+      r.undo.push(() => { if (before) invFees[v.id] = before; else delete invFees[v.id]; renderApp(); showToast(`Removed the late fee from ${v.id}`); });
+      const now = invoicesFor(state.month).find(x => x.id === v.id);
+      return {text:`Added a $25.00 late fee to ${v.id}. Its total is now ${money(now ? now.amount : v.amount + 25)}.`};
+    }},
+  reminder:{title:'Send a payment reminder', kw:/remind|nudge|chase|follow.?up|overdue|hasn.?t paid|not paid|unpaid|get paid/,
+    how:'Open the overdue invoice from its number, click Send reminder, add a short note, then Send. Tallyho waits 30 seconds before emailing.',
+    steps:['Click the overdue invoice number to open it.', 'Click Send reminder.', 'Add a short note.', 'Click Send. You have 30 seconds to undo.'],
+    show:v => v ? [
+      {el:() => hdiLink(v.id), text:`Open the invoice by clicking its number. ${v.id} is ${v.status.toLowerCase()}.`},
+      {el:() => $('#inv-remind'), text:'Click Send reminder.', prep:() => hdiPrep(v.id)},
+      {el:() => $('#inv-rmsg'), text:'Add a short note. Tallyho adds the amount, the due date and a payment link.', prep:() => hdiPrep(v.id, 'rem')},
+      {el:() => $('#inv-rsend'), text:'Click Send. Tallyho waits 30 seconds before emailing, so you can still undo it.', prep:() => hdiPrep(v.id, 'rem')},
+    ] : hdiNoUnpaid,
+    async do(r, v) {
+      if (!v) return {text:'Every invoice on this page is paid, so nobody needs a reminder.'};
+      await r.say(`Opening ${v.id} (${v.customer}, ${v.status.toLowerCase()}).`);
+      await r.click(hdiLink(v.id));
+      await r.say('Starting a reminder.');
+      await r.click($('#inv-remind'));
+      await r.say('Writing a short, friendly note.');
+      await r.type($('#inv-rmsg'), `Hi ${v.customer}, a quick reminder that ${v.id} for ${money(v.amount)} is past due. Thanks! Maya`);
+      if (!await r.confirm(`This emails ${v.customer} about ${v.id}. Send the reminder?`)) {
+        r.undo.push(() => { $('#inv-rem').hidden = true; $('#inv-rmsg').value = ''; });
+        return {text:"OK, I didn't send it. The draft is still open if you want to send it yourself."};
+      }
+      await r.say('Sending.');
+      await r.click($('#inv-rsend'));
+      r.undo.push(() => {
+        delete invReminders[v.id];
+        log(live, Date.now(), 'info', `reminder recalled: invoice=${v.id}`, true);
+        renderApp(); showToast('Reminder recalled before it went out.');
+      });
+      return {text:`Queued a reminder to ${v.customer} for ${v.id}. It goes out in 30 seconds unless you undo it.`};
+    }},
+  export:{title:'Export invoices as PDF', kw:/export|pdf|download|accountant|print|save .*invoices/,
+    how:'Pick the month in the filter at the top right, then click Export PDF.',
+    steps:['Pick the month in the filter.', 'Click Export PDF.', 'The PDF downloads. Months with more than 20 invoices can take a while.'],
+    show:() => [
+      {el:() => $('#month'), text:'Pick the month you want in the filter.'},
+      {el:() => $('#export'), text:'Click Export PDF. Months with more than 20 invoices can take a while.'},
+    ],
+    async do(r) {
+      const M = MONTHS[state.month];
+      await r.say(`The filter is set to ${M.label}, so that's the month I'll export.`);
+      await r.point($('#month'));
+      await r.say('Clicking Export PDF.');
+      const t = Date.now();
+      await r.click($('#export'));
+      await r.say(`Waiting for Tallyho to build the PDF (${M.count} invoices).`);
+      await r.waitFor(() => !state.busy, 8000);
+      if (state.toast && state.toast.t >= t && state.toast.err)
+        return {fail:true, text:`The export failed. Tallyho showed "${state.toast.text}" This is a problem in Tallyho, not something I can work around, and I won't tell you it worked.`};
+      return {text:`Exported ${M.label}. Tallyho downloaded tallyho-${state.month}.pdf.`};
+    }},
+};
+function hdiMatch(s) { s = String(s).toLowerCase(); return Object.keys(HDI_TASKS).find(k => HDI_TASKS[k].kw.test(s)) || null; }
+function hdiPermHTML() {
+  const c = (cls, xs) => xs.map(x => `<span class="c ${cls}">${esc(x)}</span>`).join('');
+  return `<div><span class="lbl">Can</span>${c('', ['Click and type on this page', 'Edit invoice lines', 'Undo what it did'])}</div>
+    <div><span class="lbl">Asks first</span>${c('ask', ['Anything that emails a customer'])}</div>
+    <div><span class="lbl">Can't</span>${c('no', ['Delete invoices', 'Move money', 'Change settings'])}</div>`;
+}
+
+// ---------- The card in the assistant ----------
+function hdiOpen({task = null, q = ''} = {}) {
+  hdiReset(); hdiRestore();
+  msgs.querySelectorAll('.hdi').forEach(c => c.remove());
+  Object.assign(HDI, {q, task:null, last:null, undo:[]});
+  HDI.card = addHTML(`<div class="hdi" role="group" aria-label="How do I">
+    <div class="hdi-h"><b>How do I…?</b><span class="chip hdi-live" hidden title="Your question is answered by Claude">Claude</span></div>
+    <form class="hdi-q"><label for="hdi-in" class="sr">Ask how to do something in Tallyho</label>
+      <input id="hdi-in" class="hdi-in" autocomplete="off" placeholder="For example: charge a late fee">
+      <button type="submit" class="btn-b">Ask</button><button type="button" class="btn-o" data-hdi="stop-ask" hidden>Stop</button></form>
+    <p class="hdi-status" role="status"></p>
+    <div class="hdi-row hdi-err" hidden><button class="btn-o" data-hdi="retry">Try again</button><button class="btn-o" data-hdi="scripted">Use the built-in answer</button></div>
+    <div class="hdi-tasks">${Object.entries(HDI_TASKS).map(([k, t]) => `<button class="chip-btn" data-hdi="task" data-id="${k}" aria-pressed="false">${esc(t.title)}</button>`).join('')}</div>
+    <div class="hdi-none" hidden><p class="hdi-none-t"></p><div class="hdi-row"><button class="btn-y" data-hdi="report">Report it with !</button></div></div>
+    <div class="hdi-task" hidden>
+      <p class="hdi-ans" hidden></p>
+      <b class="hdi-tt"></b>
+      <ol class="hdi-steps"></ol>
+      <div class="hdi-perm" aria-label="What the assistant may do">${hdiPermHTML()}</div>
+      <div class="hdi-row"><button class="btn-o" data-hdi="show">Show me</button><button class="btn-b" data-hdi="do">Do it for me</button><button class="btn-o" data-hdi="stop" hidden>Stop</button></div>
+    </div>
+    <ol class="hdi-log" hidden></ol>
+    <div class="hdi-confirm" hidden><p class="hdi-confirm-t"></p><div class="hdi-row"><button class="btn-b" data-hdi="yes">Send it</button><button class="btn-o" data-hdi="no">Don't send</button></div></div>
+    <div class="hdi-result" hidden role="status"><p class="hdi-result-t"></p><div class="hdi-row"><button class="btn-o" data-hdi="undo" hidden>Undo</button><button class="btn-y" data-hdi="report" hidden>Report it with !</button></div></div>
+    <div class="hdi-foot" hidden><span>Was this helpful?</span><button data-hdi="helpful">Yes</button><button data-hdi="nope">This didn't work</button></div>
+  </div>`);
+  hdiLiveMark();
+  if (task) hdiPick(task);
+  return HDI.card;
+}
+const hdiQ = s => HDI.card?.querySelector(s);
+function hdiLiveMark() { const b = hdiQ('.hdi-live'); if (b) b.hidden = !HDI.sample; }
+function hdiStatus(text, err) { const s = hdiQ('.hdi-status'); if (s) { s.textContent = text || ''; s.classList.toggle('err', !!err); } }
+function hdiBusy(on) { if (!HDI.card) return; hdiQ('.hdi-q [type=submit]').disabled = on; hdiQ('[data-hdi=stop-ask]').hidden = !on; }
+function hdiPick(id, {answer = ''} = {}) {
+  const c = HDI.card, t = HDI_TASKS[id]; if (!c || !t) return;
+  if (HDI.run || HDI.tour) { hdiReset(); hdiRestore(); }
+  HDI.task = id; HDI.last = null;
+  c.querySelectorAll('[data-hdi=task]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === id)));
+  hdiQ('.hdi-none').hidden = true; hdiQ('.hdi-log').hidden = true; hdiQ('.hdi-result').hidden = true; hdiQ('.hdi-confirm').hidden = true;
+  const box = hdiQ('.hdi-task'); box.hidden = false;
+  const ans = box.querySelector('.hdi-ans'); ans.textContent = answer; ans.hidden = !answer;
+  box.querySelector('.hdi-tt').textContent = t.title;
+  box.querySelector('.hdi-steps').replaceChildren(...t.steps.map(s => { const li = document.createElement('li'); li.textContent = s; return li; }));
+  hdiQ('.hdi-foot').hidden = false;
+  act(live, Date.now(), 'click', 'How do I: task', t.title);
+  scrollChat();
+}
+function hdiNone(answer) {
+  const c = HDI.card; if (!c) return;
+  HDI.task = null; HDI.last = null;
+  c.querySelectorAll('[data-hdi=task]').forEach(b => b.setAttribute('aria-pressed', 'false'));
+  ['.hdi-task', '.hdi-log', '.hdi-result', '.hdi-confirm'].forEach(s => { hdiQ(s).hidden = true; });
+  const n = hdiQ('.hdi-none'); n.hidden = false;
+  n.querySelector('.hdi-none-t').textContent = answer
+    || "I can't do that yet. If Tallyho should do this, or something is in your way, report it with ! and the team will see exactly where you were.";
+  n.querySelector('[data-hdi=report]').textContent = answer ? 'Still stuck? Report it with !' : 'Report it with !';
+  hdiQ('.hdi-foot').hidden = false;
+  scrollChat();
+}
+
+// ---------- Free-text question: Claude when available, keyword match otherwise ----------
+(async () => {
+  if (!window.claude?.use) return;
+  try {
+    const s = await window.claude.use('sample');
+    if (s && typeof s.json === 'function') { HDI.sample = s; hdiLiveMark(); }
+  } catch { HDI.sample = null; }
+})();
+function hdiPrompt(q) {
+  return [
+    'You are the help assistant inside Tallyho, an invoicing web app. A user asked how to do something.',
+    'Pick the ONE task below that does what they asked, or null if none fits. Then write a short plain answer (at most 2 sentences, no markdown):',
+    'how to do it in Tallyho, or, if no task fits, the most helpful honest reply (say so if Tallyho may not support it).',
+    'Tasks:',
+    ...Object.entries(HDI_TASKS).map(([k, t]) => `- ${k}: ${t.title}. ${t.how}`),
+    'What is on screen: an Invoices list with a month filter and an Export PDF button; rows show invoice number, customer, amount, status (Paid, Due, Overdue) and Mark paid. Clicking an invoice number opens it, with Add line and Send reminder.',
+    'User question: ' + JSON.stringify(q),
+    'Reply with only one JSON object of exactly this shape: {"task_id": "late-fee" | "reminder" | "export" | null, "answer": string}',
+    'Example: {"task_id":"export","answer":"Pick the month in the filter, then click Export PDF."}',
+  ].join('\n');
+}
+function hdiValid(d) {
+  if (!d || typeof d !== 'object' || Array.isArray(d)) return null;
+  const task = typeof d.task_id === 'string' && Object.hasOwn(HDI_TASKS, d.task_id) ? d.task_id : null;
+  const answer = typeof d.answer === 'string' ? d.answer.trim().slice(0, 400) : '';
+  return {task, answer};
+}
+function hdiScripted(q) { const k = hdiMatch(q); return k ? hdiPick(k) : hdiNone(null); }
+async function hdiAsk(q) {
+  q = String(q || '').trim();
+  if (!q) return hdiQ('.hdi-in')?.focus();
+  const card = HDI.card;
+  HDI.q = q; hdiQ('.hdi-err').hidden = true; hdiStatus('');
+  act(live, Date.now(), 'chat', 'How do I: ask', q);
+  if (!HDI.sample) return hdiScripted(q);
+  const ctl = HDI.ctl = new AbortController();
+  hdiBusy(true); hdiStatus('Thinking…');
+  try {
+    const data = await HDI.sample.json(hdiPrompt(q), {modelTier:'quick', signal:ctl.signal,
+      onText:() => { if (HDI.ctl === ctl && card === HDI.card) hdiStatus('Answering…'); }});
+    if (HDI.ctl !== ctl || card !== HDI.card) return;
+    const v = hdiValid(data);
+    if (!v) throw {code:'invalid_json', message:'reply was not an object'};
+    hdiBusy(false); hdiStatus('');
+    return v.task ? hdiPick(v.task, {answer:v.answer}) : hdiNone(v.answer || null);
+  } catch (e) {
+    if (HDI.ctl !== ctl || card !== HDI.card) return;
+    hdiBusy(false); hdiStatus('');
+    const code = e?.code;
+    if (code === 'cancelled' || e?.name === 'AbortError') return;
+    if (HDI_SOFT.includes(code)) { HDI.sample = null; hdiLiveMark(); return hdiScripted(q); }
+    hdiStatus((HDI_HARD[code] || "Couldn't get an answer.") + ' Try again, or use the built-in answer.', true);
+    hdiQ('.hdi-err').hidden = false;
+  } finally {
+    if (HDI.ctl === ctl) HDI.ctl = null;
+  }
+}
+
+// ---------- Spotlight, tip and agent cursor (drawn inside the browser frame) ----------
+function hdiRect(el) {
+  const f = $('#frame').getBoundingClientRect(), r = el.getBoundingClientRect();
+  return {x:r.left - f.left, y:r.top - f.top, w:r.width, h:r.height};
+}
+function hdiLayer(withCursor) {
+  if (!HDI.layer) {
+    const mk = (cls, html) => { const d = document.createElement('div'); d.className = cls; if (html) d.innerHTML = html; return d; };
+    const spot = mk('hdi-spot'), tip = mk('hdi-tip'), cursor = mk('hdi-cursor',
+      '<svg width="22" height="24" viewBox="0 0 22 24"><path d="M2 2 L2 20 L7 15.5 L10.5 23 L13.5 21.6 L10 14.2 L17 14.2 Z" fill="currentColor" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg><span>Assistant</span>');
+    spot.setAttribute('aria-hidden', 'true'); cursor.setAttribute('aria-hidden', 'true');
+    tip.setAttribute('role', 'dialog'); tip.setAttribute('aria-label', 'How do I'); tip.setAttribute('aria-live', 'polite');
+    tip.addEventListener('click', e => { const a = e.target.closest('[data-ta]')?.dataset.ta; if (a) hdiAct(a); });
+    $('#frame').append(spot, tip, cursor);
+    HDI.layer = {spot, tip, cursor};
+  }
+  const c = HDI.layer.cursor;
+  c.hidden = !withCursor;
+  if (withCursor && !c.style.left) { c.style.left = Math.max(20, $('#frame').clientWidth - 90) + 'px'; c.style.top = '62px'; }
+}
+function hdiLayerOff() { if (HDI.layer) Object.values(HDI.layer).forEach(e => e.remove()); HDI.layer = null; HDI.focus = null; }
+function hdiPlace() {
+  const L = HDI.layer, el = HDI.focus; if (!L || !el) return;
+  const f = $('#frame'), p = hdiRect(el), pad = 5;
+  Object.assign(L.spot.style, {left:p.x - pad + 'px', top:p.y - pad + 'px', width:p.w + pad * 2 + 'px', height:p.h + pad * 2 + 'px'});
+  L.spot.classList.toggle('ring', HDI.ring);
+  const tw = L.tip.offsetWidth || 280, th = L.tip.offsetHeight || 120, fw = f.clientWidth, fh = f.clientHeight;
+  let top = p.y + p.h + pad + 12;
+  if (top + th > fh - 8) top = Math.max(8, p.y - pad - 12 - th);
+  L.tip.style.left = Math.max(12, Math.min(p.x, fw - tw - 12)) + 'px';
+  L.tip.style.top = top + 'px';
+}
+function hdiTip(kicker, text, buttons, focus) {
+  const t = HDI.layer?.tip; if (!t) return;
+  const k = document.createElement('span'), p = document.createElement('p'), row = document.createElement('div');
+  k.className = 'k'; k.textContent = kicker; p.textContent = text; row.className = 'hdi-row';
+  buttons.forEach(([a, label, cls, off]) => { const b = document.createElement('button'); b.className = cls; b.dataset.ta = a; b.textContent = label; b.disabled = !!off; row.append(b); });
+  t.replaceChildren(k, p, row);
+  hdiPlace();
+  if (focus) t.querySelector(`[data-ta="${focus}"]`)?.focus({preventScroll:true});
+}
+function hdiPoint(el, ring) {
+  HDI.focus = el; HDI.ring = ring;
+  el.scrollIntoView?.({block:'center', behavior:'smooth'});
+  hdiPlace(); setTimeout(hdiPlace, 350);
+}
+function hdiNarrow() { if (state.asstOpen && $('#frame').clientWidth <= 640) { setAsst(false); return true; } return false; }
+function hdiRestore() { if (HDI.closedAsst) { HDI.closedAsst = false; setAsst(true); } scrollChat(); }
+function hdiStop() { const r = HDI.run; if (r && !r.stopped) { r.stopped = true; r.confirm?.(false); } }
+function hdiReset() {
+  hdiTourEnd(true); hdiStop(); HDI.run = null;
+  if (HDI.ctl) { HDI.ctl.abort(); HDI.ctl = null; hdiBusy(false); hdiStatus(''); }
+  hdiLayerOff();
+}
+
+// ---------- Show me: a walkthrough over the real elements ----------
+function hdiShow(id) {
+  const t = HDI_TASKS[id]; if (!t) return;
+  hdiReset();
+  HDI.closedAsst = hdiNarrow() || HDI.closedAsst;
+  HDI.tour = {id, steps:t.show(hdiTarget()), i:0, wasOpen:!$('#inv-detail').hidden};
+  HDI.last = {mode:'Show me', title:t.title, text:'It walked me through the steps.'};
+  act(live, Date.now(), 'click', 'How do I: Show me', t.title);
+  hdiLayer(false);
+  hdiTourGo(0);
+}
+function hdiTourGo(i) {
+  const T = HDI.tour; if (!T || i < 0 || i >= T.steps.length) return;
+  const s = T.steps[i]; T.i = i;
+  s.prep?.();
+  const el = s.el(); if (!el) return hdiTourEnd();
+  hdiPoint(el, false);
+  const last = i === T.steps.length - 1;
+  hdiTip(`Show me · step ${i + 1} of ${T.steps.length}`, s.text,
+    [['back', 'Back', 'btn-o', i === 0], last ? ['end', 'Done', 'btn-b'] : ['next', 'Next', 'btn-b'], ...(last ? [] : [['end', 'Close', 'btn-o']])], last ? 'end' : 'next');
+}
+function hdiTourEnd(quiet) {
+  const T = HDI.tour; if (!T) return;
+  HDI.tour = null;
+  hdiLayerOff();
+  if (T.id !== 'export') { $('#inv-add').hidden = true; $('#inv-rem').hidden = true; if (!T.wasOpen) { invOpen = null; $('#inv-detail').hidden = true; } }
+  if (!quiet) { hdiRestore(); hdiQ('[data-hdi=show]')?.focus({preventScroll:true}); }
+}
+
+// ---------- Do it for me: a visible cursor works the real UI ----------
+function hdiLog(text) {
+  const l = hdiQ('.hdi-log'); if (!l) return;
+  l.querySelectorAll('li.now').forEach(x => x.classList.remove('now'));
+  const li = document.createElement('li'); li.className = 'now'; li.textContent = text; l.append(li);
+  scrollChat();
+}
+function hdiApi(run, title) {
+  const check = () => { if (run.stopped || HDI.run !== run) throw HDI_STOP; };
+  const move = async el => {
+    check();
+    if (!el || !el.isConnected) throw new Error('target missing');
+    el.scrollIntoView?.({block:'center', behavior:'smooth'});
+    await hdiWait(250); check();
+    hdiPoint(el, true);
+    const p = hdiRect(el), c = HDI.layer.cursor;
+    c.style.left = p.x + Math.min(p.w * .6, Math.max(p.w - 6, 0)) + 'px'; c.style.top = p.y + p.h * .6 + 'px';
+    await hdiWait(600); check();
+  };
+  return {
+    undo:run.undo,
+    point:move,
+    say:async text => { check(); hdiLog(text); hdiTip(`Do it for me · ${title}`, text, [['stop', 'Stop', 'btn-o']]); await hdiWait(380); },
+    click:async el => {
+      await move(el);
+      const c = HDI.layer.cursor; c.classList.remove('click'); void c.offsetWidth; c.classList.add('click');
+      await hdiWait(180); check();
+      el.click();
+      await hdiWait(450);
+    },
+    type:async (el, text) => {
+      await move(el);
+      el.value = '';
+      for (const ch of text) { check(); el.value += ch; el.dispatchEvent(new Event('input', {bubbles:true})); await hdiWait(28); }
+      await hdiWait(200);
+    },
+    confirm:async text => {
+      check(); hdiLog(text);
+      const box = hdiQ('.hdi-confirm');
+      if (box) { box.hidden = false; box.querySelector('.hdi-confirm-t').textContent = text; }
+      hdiTip(`Do it for me · needs your OK`, text, [['yes', 'Send it', 'btn-b'], ['no', "Don't send", 'btn-o']], 'yes');
+      const ok = await new Promise(res => { run.confirm = res; });
+      run.confirm = null;
+      if (box) box.hidden = true;
+      check();
+      hdiLog(ok ? 'You said: send it.' : "You said: don't send.");
+      return ok;
+    },
+    waitFor:async (cond, ms) => { const end = Date.now() + ms; while (!cond() && Date.now() < end) { check(); await new Promise(r => setTimeout(r, 100)); } check(); },
+  };
+}
+async function hdiDo(id) {
+  const t = HDI_TASKS[id]; if (!t || !HDI.card) return;
+  hdiReset();
+  const card = HDI.card, run = HDI.run = {id, stopped:false, undo:[], confirm:null};
+  act(live, Date.now(), 'click', 'How do I: Do it for me', t.title);
+  hdiQ('.hdi-log').replaceChildren(); hdiQ('.hdi-log').hidden = false; hdiQ('.hdi-result').hidden = true;
+  card.querySelectorAll('[data-hdi=show],[data-hdi=do]').forEach(b => { b.disabled = true; });
+  hdiQ('[data-hdi=stop]').hidden = false;
+  HDI.closedAsst = hdiNarrow() || HDI.closedAsst;
+  hdiLayer(true);
+  let res;
+  try { res = await t.do(hdiApi(run, t.title), hdiTarget()); }
+  catch (e) { res = e === HDI_STOP ? {text:'Stopped. Nothing else will happen.', stopped:true} : {fail:true, text:'Something on the page changed while I was working, so I stopped.'}; }
+  if (HDI.run !== run || card !== HDI.card) return;  // a newer run, tour or card took over
+  HDI.run = null;
+  hdiLayerOff(); hdiRestore();
+  card.querySelectorAll('[data-hdi=show],[data-hdi=do]').forEach(b => { b.disabled = false; });
+  hdiQ('[data-hdi=stop]').hidden = true; hdiQ('.hdi-confirm').hidden = true;
+  hdiQ('.hdi-log li.now')?.classList.remove('now');
+  HDI.undo = run.undo;
+  HDI.last = {mode:'Do it for me', title:t.title, text:res.text, fail:!!res.fail};
+  const R = hdiQ('.hdi-result');
+  R.hidden = false; R.classList.toggle('fail', !!res.fail);
+  R.querySelector('.hdi-result-t').textContent = res.text;
+  R.querySelector('[data-hdi=undo]').hidden = !run.undo.length;
+  R.querySelector('[data-hdi=report]').hidden = !res.fail;
+  act(live, Date.now(), res.fail ? 'saw' : 'help', 'How do I: result', res.text);
+  scrollChat();
+}
+function hdiUndo() {
+  const u = HDI.undo; if (!u.length) return;
+  u.slice().reverse().forEach(f => f()); HDI.undo = [];
+  act(live, Date.now(), 'click', 'How do I: Undo', HDI.last?.title || '');
+  hdiQ('.hdi-result-t').textContent = 'Undone. Everything I changed is back the way it was.';
+  hdiQ('[data-hdi=undo]').hidden = true;
+}
+
+// ---------- Hand-off to This Happened! ----------
+function hdiReport(why) {
+  const L = HDI.last, parts = [];
+  if (HDI.q) parts.push(`I asked How do I: "${HDI.q}".`);
+  if (why === 'none') parts.push("It couldn't help with that yet.");
+  if (L) parts.push(L.mode === 'Do it for me' ? `How do I tried "${L.title}" for me. ${L.text}` : `I used How do I > Show me for "${L.title}".`);
+  else if (HDI.task) parts.push(`It suggested "${HDI_TASKS[HDI.task].title}".`);
+  if (why === 'nope') parts.push("It didn't work for me.");
+  act(live, Date.now(), 'click', why === 'nope' ? "How do I: This didn't work" : 'How do I: Report it with !');
+  hdiReset(); hdiRestore();
+  openDrawer({origin:'button', note:parts.join(' ')});
+}
+
+function hdiAct(a, btn) {
+  if (a === 'task') return hdiPick(btn.dataset.id);
+  if (a === 'show') return hdiShow(HDI.task);
+  if (a === 'do') return hdiDo(HDI.task);
+  if (a === 'stop') return hdiStop();
+  if (a === 'yes' || a === 'no') return HDI.run?.confirm?.(a === 'yes');
+  if (a === 'back') return HDI.tour && hdiTourGo(HDI.tour.i - 1);
+  if (a === 'next') return HDI.tour && hdiTourGo(HDI.tour.i + 1);
+  if (a === 'end') return hdiTourEnd();
+  if (a === 'undo') return hdiUndo();
+  if (a === 'report') return hdiReport(HDI.task ? 'fail' : 'none');
+  if (a === 'nope') return hdiReport('nope');
+  if (a === 'stop-ask') return HDI.ctl?.abort();
+  if (a === 'retry') return hdiAsk(HDI.q);
+  if (a === 'scripted') { hdiQ('.hdi-err').hidden = true; hdiStatus(''); return hdiScripted(HDI.q); }
+  if (a === 'helpful') {
+    act(live, Date.now(), 'click', 'How do I: helpful', HDI.last?.title || '');
+    hdiQ('.hdi-foot').textContent = 'Thanks for telling us.';
+  }
+}
+msgs.addEventListener('click', e => {
+  const b = e.target.closest('[data-hdi]');
+  if (b && HDI.card?.contains(b)) hdiAct(b.dataset.hdi, b);
+});
+msgs.addEventListener('submit', e => {
+  if (!e.target.classList.contains('hdi-q')) return;
+  e.preventDefault();
+  hdiAsk(e.target.querySelector('.hdi-in').value);
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (HDI.tour) { e.preventDefault(); hdiTourEnd(); }
+  else if (HDI.run) { e.preventDefault(); hdiStop(); }
+});
+$('.app-main').addEventListener('scroll', () => hdiPlace(), {passive:true});
+window.addEventListener('resize', () => hdiPlace());
+
+// ================= Capture, redact, bundle =================
+const EVIDENCE = [
+  {key:'screen',       n:1, title:'Screen'},
+  {key:'actions',      n:2, title:'Your recent steps'},
+  {key:'network',      n:3, title:'Calls and their trails'},
+  {key:'console',      n:4, title:'App log'},
+  {key:'conversation', n:5, title:'Assistant conversation'},
+  {key:'flags',        n:6, title:'Feature flags'},
+  {key:'device',       n:7, title:'Browser and app version'},
+];
+const EVN = Object.fromEntries(EVIDENCE.map(e => [e.key, e.n]));
+function browserName() {
+  const ua = navigator.userAgent;
+  const m = ua.match(/(Edg|Chrome|Firefox|Version)\/(\d+)/);
+  const name = !m ? 'Unknown browser' : m[1] === 'Edg' ? 'Edge ' + m[2] : m[1] === 'Version' ? 'Safari ' + m[2] : m[1] + ' ' + m[2];
+  const os = /Mac/.test(ua) ? 'macOS' : /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Linux/.test(ua) ? 'Linux' : 'unknown OS';
+  return `${name} on ${os}`;
+}
+function capture(r, o = {}) {
+  const t = o.t || Date.now(), since = t - 5 * 60e3, M = MONTHS[state.month];
+  const recentToast = state.toast && t - state.toast.t < 60e3 ? state.toast.text : null;
+  const convo = r.convo.filter(m => m.t >= since).slice(-20);
+  return {
+    t, user:USER.email,
+    screen:o.screen || {route:`/invoices?month=${state.month}`, heading:'Invoices', filter:M.label, assistant_open:state.asstOpen, visible_message:recentToast, viewport:`${innerWidth}×${innerHeight}`},
+    actions:r.actions.filter(a => a.t >= since).slice(-15),
+    network:r.net.filter(c => c.t >= since).slice(-10),
+    console:r.logs.filter(l => l.t >= since).slice(-30),
+    conversation:convo.length ? {assistant:ASSISTANT, messages:convo} : null,
+    flags:{...FLAGS},
+    device:o.device || {browser:browserName(), language:navigator.language, timezone:Intl.DateTimeFormat().resolvedOptions().timeZone, online:navigator.onLine, app:APP},
+  };
+}
+function redact(obj) {
+  let s = JSON.stringify(obj), removed = [];
+  const tok = s.match(/Bearer [\w.-]+/g) || [];
+  if (tok.length) removed.push(`sign-in token (${tok.length}×)`);
+  s = s.replace(/Bearer [\w.-]+/g, '[removed: sign-in token]');
+  const em = s.match(/[\w.+-]+@[\w-]+\.[\w.-]+/g) || [];
+  if (em.length) removed.push(`email address (${em.length}×)`);
+  s = s.replace(/([\w.+-])[\w.+-]*@([\w-]+\.[\w.-]+)/g, '$1***@$2');
+  return {data:JSON.parse(s), removed};
+}
+function buildBundle(cap, note, include, origin) {
+  const evidence = {};
+  EVIDENCE.forEach(e => { if (include[e.key] && cap[e.key]) evidence[e.key] = cap[e.key]; });
+  const failed = (cap.network || []).filter(c => c.status >= 500);
+  return redact({
+    schema:'this-happened/report@0.2',
+    report_id:uuid7(cap.t),
+    filed_at:new Date(cap.t).toISOString(),
+    filed_from:origin === 'conversation' ? 'assistant conversation' : '! button',
+    reporter:cap.user,
+    app:APP,
+    note:note || null,
+    breadcrumbs:include.network && failed.length ? failed[failed.length - 1].hops.map(h => ({id:h.id, parent:h.parent, service:h.service})) : [],
+    window:'last 5 minutes',
+    evidence,
+  });
+}
+function evSummary(key, ev) {
+  const v = ev[key]; if (!v) return '';
+  const pl = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  switch (key) {
+    case 'screen': return `${v.heading}, ${v.filter}${v.visible_message ? `, message on screen: "${v.visible_message}"` : ''}`;
+    case 'actions': return `${pl(v.length, 'step')} in the last 5 minutes`;
+    case 'network': { const f = v.filter(c => c.status >= 500).length; return `${pl(v.length, 'call')}${f ? `, ${f} failed` : ''}, with trail IDs`; }
+    case 'console': { const e = v.filter(l => l.level === 'error').length; return `${pl(v.length, 'line')}${e ? `, ${pl(e, 'error')}` : ''}`; }
+    case 'conversation': { const m = v.messages, tl = m.filter(x => x.role === 'tool').length; return `${pl(m.length - tl, 'message')}, ${pl(tl, 'tool call')}`; }
+    case 'flags': return Object.entries(v).map(([k, on]) => `${k} ${on ? 'on' : 'off'}`).join(', ');
+    case 'device': return `${v.browser}, ${v.app}`;
+  }
+}
+
+// ================= Triage (rule-based stand-in for the agent's first read) =================
+function depthOf(h, hops) { let d = 0, p = h.parent; while (p) { d++; p = hops.find(x => x.id === p)?.parent; } return d; }
+const isBad = h => !/^(ok|2\d\d)$/.test(h.status);
+function diagnose(b) {
+  const ev = b.evidence, net = ev.network, logs = ev.console || [], flags = ev.flags, convo = ev.conversation?.messages;
+  const toolFail = convo?.find(m => m.role === 'tool' && /error/.test(m.status));
+  const claim = toolFail ? convo.find(m => m.role === 'assistant' && m.t >= toolFail.t && /done|sent|emailed/i.test(m.text)) : null;
+  let saw = claim?.text || ev.screen?.visible_message || (ev.actions || []).filter(a => a.type === 'saw').pop()?.detail || null;
+  const errLog = logs.filter(l => l.level === 'error').pop();
+  const failed = (net || []).filter(c => c.status >= 500);
+  const causes = [], next = [];
+  if (failed.length) {
+    const c = failed[failed.length - 1];
+    const bad = c.hops.filter(isBad).sort((x, y) => depthOf(y, c.hops) - depthOf(x, c.hops))[0];
+    const okExport = net.filter(x => x.kind === c.kind && x.status < 400 && x.count < c.count).pop();
+    if (claim) causes.push({text:`The assistant replied "${claim.text}" after pdf.export returned an error.`, refs:[EVN.conversation]});
+    causes.push({text:`The trail ends at ${bad.service}: "${bad.op}" ran ${sec(bad.dur)} and was cut off (${bad.note || bad.status}).`, refs:[EVN.network]});
+    if (flags?.pdf_v2_renderer) causes.push({text:'The v2 PDF renderer flag is on for this account.', refs:[EVN.flags]});
+    if (okExport) causes.push({text:`A ${okExport.count}-invoice export at ${fmt(okExport.t)} finished in ${sec(okExport.dur)}. Batch size is the likely trigger.`, refs:[EVN.actions, EVN.network]});
+    if (errLog && !claim) causes.push({text:'The app logged the 504 but showed the user a generic error.', refs:[EVN.console]});
+    if (claim) next.push('Make the assistant check tool results before it claims success, and add an eval for this case.');
+    next.push(`Open pdf-renderer logs for trail ${short(bad.id)}.`);
+    next.push('Split exports over 20 invoices into pages, so no single render runs past 30 s.');
+    if (!claim && saw) next.push(`Replace "${saw}" with a message that says the export is too large and offers a smaller range.`);
+    const conf = flags && (okExport || claim) ? 'High' : 'Medium';
+    return {
+      title:claim ? 'Assistant said the invoices were sent. The export had timed out.' : `Export of ${c.count} invoices timed out`,
+      saw, summary:claim
+        ? `pdf.export failed with ${c.status}: ${bad.service} hit its 30 s limit on ${c.count} invoices. The assistant told the user it worked anyway.`
+        : `${c.method} ${c.url.split('?')[0]} returned ${c.status} because ${bad.service} hit its 30 s limit while rendering ${c.count} invoices.`,
+      causes, next, conf, call:c, bad, root:bad.service, assistantLied:!!claim, questions:0,
+      confWhy:conf === 'High' ? 'the trail reaches the failing service, and the evidence agrees' : 'the trail reaches the failing service; nothing to compare it with',
+    };
+  }
+  if (!net) causes.push({text:'Calls were left out of this report, so there is no trail to follow.', refs:[]});
+  if (errLog) causes.push({text:`The app logged an error: "${errLog.msg}".`, refs:[EVN.console]});
+  if (!causes.length) causes.push({text:'Nothing failed in the 5 minutes before the report.', refs:[EVN.network, EVN.console]});
+  next.push(b.note ? 'Work from the note; the captured steps show where the user was.' : 'Ask the user one question: what did they expect to happen?');
+  return {title:b.note ? b.note.split(/[.!?]/)[0].slice(0, 80) : 'Something went wrong (no details)', saw, summary:'No failed call in the captured window.',
+    causes, next, conf:'Low', confWhy:'no failing trail', call:(net || []).slice(-1)[0] || null, bad:null, root:null, assistantLied:false, questions:b.note ? 0 : 1};
+}
+
+// ================= Report records: one record, three views =================
+const STATUS = ['Received', 'Looking into it', 'Fix on the way', 'Fixed'];
+const reports = [];
+let nextKey = 7, selMine = null, selQueue = null, running = false, bundleOpen = false;
+function addReport({bundle, removed, diag, origin, t, key, captureMs}) {
+  const rep = {key:key || 'TH-' + String(nextKey++).padStart(4, '0'), bundle, removed, diag, origin, t, captureMs,
+    status:0, updates:[{t, s:0, text:"We got your report and everything we need with it. You don't need to send anything else."}],
+    unseen:false, confirmed:null, term:[], linked:[], triage:null, prompt:null, question:null};
+  reports.unshift(rep);
+  return rep;
+}
+function setStatus(rep, s, text) {
+  rep.status = s;
+  rep.updates.push({t:Date.now(), s, text});
+  rep.unseen = true;
+}
+function userText(rep, s) {
+  const d = rep.diag, tri = rep.triage;
+  // Live triage: Claude wrote the plain-language update itself.
+  if (tri) {
+    if (s === 1) return rep.awaiting && rep.question ? `We're looking into it. One question: ${rep.question}` : tri.plain_language_update || "We found what went wrong and we're working on a fix.";
+    if (s === 2) return "A fix is in review. We'll tell you here as soon as it's live.";
+    if (s === 3) return 'Fixed and live. Try it again, and tell us below if it works.';
+  }
+  if (s === 1) return d.root
+    ? `We found it. The part of Tallyho that builds PDFs gives up on exports over about 20 invoices.${d.assistantLied ? " The assistant also told you they'd been sent when they hadn't. That's on us, and we're fixing both." : ''}`
+    : "We're looking into it. One question: what did you expect to happen?";
+  if (s === 2) return `A fix is in review: large exports will be built in parts so they finish.${d.assistantLied ? ' The assistant will check that a step worked before saying so.' : ''}`;
+  if (s === 3) return `Fixed. Large exports now finish${d.assistantLied ? ', and the assistant reports failures honestly' : ''}. Try exporting March again.`;
+}
+
+// ---------- Drawer ----------
+let pending = null;
+function openDrawer({origin = 'button', note = ''} = {}) {
+  const t0 = performance.now();
+  const cap = capture(live);
+  pending = {cap, origin, ms:Math.max(1, Math.round(performance.now() - t0))};
+  act(live, cap.t, 'click', origin === 'conversation' ? 'Assistant: review report' : 'This Happened! (!)');
+  $('#dr-sub').textContent = origin === 'conversation'
+    ? 'The assistant gathered this from your conversation and what Tallyho was doing. Check it, edit the note, and send.'
+    : 'We saved what was on screen and what Tallyho was doing just now. Check it, add a note if you like, and send.';
+  $('#note').value = note;
+  $('#evlist').innerHTML = EVIDENCE.filter(e => cap[e.key]).map(e => {
+    const preview = JSON.stringify(redact(cap[e.key]).data, null, 2);
+    return `<details class="ev" id="ev-${e.key}">
+      <summary><span class="mk">${e.n}</span><span class="ev-t"><b>${e.title}</b><span>${esc(evSummary(e.key, cap))}</span></span>
+      <input type="checkbox" checked id="inc-${e.key}" aria-label="Include ${e.title}"></summary>
+      <pre>${esc(preview.length > 2400 ? preview.slice(0, 2400) + '\n…' : preview)}</pre></details>`;
+  }).join('');
+  EVIDENCE.forEach(e => {
+    const cb = $('#inc-' + e.key); if (!cb) return;
+    cb.addEventListener('click', ev => ev.stopPropagation());
+    cb.addEventListener('change', () => { $('#ev-' + e.key).classList.toggle('off', !cb.checked); updateRedact(); });
+  });
+  updateRedact();
+  $('#drawer').hidden = false;
+  $('#note').focus();
+}
+const currentInclude = () => Object.fromEntries(EVIDENCE.map(e => [e.key, !!$('#inc-' + e.key)?.checked]));
+function updateRedact() {
+  const {removed} = buildBundle(pending.cap, $('#note').value, currentInclude(), pending.origin);
+  $('#redact').innerHTML = `<span class="mk">✓</span><span>${removed.length ? `<b>Removed before sending:</b> ${removed.map(esc).join(', ')}.` : 'Nothing private found to remove.'} Nothing leaves your browser until you tap Send.</span>`;
+}
+$('#note').addEventListener('input', () => pending && updateRedact());
+$('#ctl-bang').addEventListener('click', () => openDrawer({origin:'button'}));
+$('#cancel').addEventListener('click', () => { $('#drawer').hidden = true; pending = null; });
+$('#send').addEventListener('click', () => {
+  const {data, removed} = buildBundle(pending.cap, $('#note').value.trim(), currentInclude(), pending.origin);
+  const rep = addReport({bundle:data, removed, diag:diagnose(data), origin:pending.origin, t:pending.cap.t, captureMs:pending.ms});
+  const origin = pending.origin;
+  $('#drawer').hidden = true; pending = null;
+  selMine = rep.key; selQueue = rep.key;
+  if (origin === 'conversation') {
+    msgs.querySelectorAll('.offer').forEach(o => o.remove());
+    assistantSays(`Reported as ${rep.key}. You'll see updates in My reports, and I'll tell you here when it's fixed.`, {delay:300,
+      extra:`<div class="chips"><button class="chip-btn" data-act="open-mine" data-key="${rep.key}">Open My reports</button></div>`});
+  } else {
+    showToast(`Reported as ${rep.key}. Follow it in My reports.`);
+  }
+  renderAll();
+});
+
+// ================= My reports =================
+function stepper(s) {
+  return `<ol class="stepper" aria-label="Status: ${STATUS[s]}">${STATUS.map((x, i) =>
+    `<li class="${i < s ? 'done' : ''}${i === s ? ' now' + (s === 3 ? ' fixed' : '') : ''}">${x}</li>`).join('')}</ol>`;
+}
+function renderMine() {
+  if (!selMine || !reports.find(r => r.key === selMine)) selMine = reports[0]?.key;
+  $('#rlist').innerHTML = reports.map(r => `<button class="rcard" data-mine="${r.key}" aria-current="${r.key === selMine}">
+    <span class="r1"><span class="mono">${r.key}</span><span class="sp s${r.status}">${STATUS[r.status]}</span>${r.unseen ? '<span class="dot" title="New update"></span>' : ''}</span>
+    <b>${esc(r.diag.title)}</b>
+    <span class="r3">${r.origin === 'conversation' ? 'From the assistant' : 'With the ! button'} · filed ${ago(r.t)} · updated ${ago(r.updates[r.updates.length - 1].t)}</span>
+  </button>`).join('');
+  const r = reports.find(x => x.key === selMine);
+  if (!r) { $('#rdetail').innerHTML = '<p class="empty">No reports yet.</p>'; return; }
+  if (!$('#view-mine').hidden) r.unseen = false;
+  const b = r.bundle, ev = b.evidence;
+  $('#rdetail').innerHTML = `
+    <div style="display:grid;gap:6px">
+      <p class="eyebrow"><span class="mono">${r.key}</span>${r.origin === 'conversation' ? '<span class="chip">From the assistant</span>' : '<span class="chip">With the ! button</span>'}${r.linked.length ? `<span class="chip">Same problem as ${r.linked.join(', ')}</span>` : ''}</p>
+      <h2 style="font-size:clamp(1.3rem,3vw,1.75rem);font-weight:800;font-stretch:106%">${esc(r.diag.title)}</h2>
+      <p class="muted" style="font-size:14px">Filed ${ago(r.t)}</p>
+    </div>
+    ${stepper(r.status)}
+    ${r.awaiting ? `<div class="ask">
+      <b>One question from the Tallyho team</b>
+      <p>${esc(r.question || 'What were you doing, and what did you expect to happen?')}</p>
+      ${r.question ? '' : `<div class="chips"><button class="chip-btn" data-ans="I was exporting March invoices for my accountant. Nothing arrived.">I was exporting March invoices for my accountant. Nothing arrived.</button></div>`}
+      <label for="answer" class="sr">Your answer</label>
+      <textarea id="answer" placeholder="Type your answer"></textarea>
+      <div><button class="btn-b" data-answer="1">Send answer</button></div>
+    </div>` : ''}
+    ${r.status === 3 && r.confirmed === null ? `<div class="confirm"><b>Did the fix work for you?</b><button class="btn-b" data-confirm="yes">Yes, it works</button><button class="btn-o" data-confirm="no">No, still broken</button></div>` : ''}
+    ${r.confirmed === true ? `<div class="confirm"><b>You confirmed the fix.</b><span class="muted">Thanks. This report is closed.</span></div>` : ''}
+    <div class="sec-h"><h3>Updates</h3></div>
+    <ol class="upd">${r.updates.slice().reverse().map(u => `<li><span class="sp s${u.s}">${STATUS[u.s]}</span><span class="when">${ago(u.t)} · Tallyho team</span><p>${esc(u.text)}</p></li>`).join('')}</ol>
+    <details>
+      <summary style="cursor:pointer;font-weight:600">What you sent</summary>
+      <div style="display:grid;gap:12px;margin-top:12px">
+        ${b.note ? `<p class="note">${esc(b.note)}</p>` : ''}
+        <ul class="sent">${EVIDENCE.filter(e => ev[e.key]).map(e => `<li><span class="mk">${e.n}</span><span><b>${e.title}.</b> ${esc(evSummary(e.key, ev))}</span></li>`).join('')}</ul>
+        <p class="sim">Removed before sending: ${r.removed.length ? esc(r.removed.join(', ')) : 'nothing'}. Report ID <span class="mono">${b.report_id}</span></p>
+      </div>
+    </details>`;
+}
+$('#rlist').addEventListener('click', e => { const k = e.target.closest('[data-mine]')?.dataset.mine; if (k) { selMine = k; renderAll(); } });
+$('#rdetail').addEventListener('click', e => {
+  const r = reports.find(x => x.key === selMine);
+  const ans = e.target.closest('[data-ans]')?.dataset.ans;
+  if (ans) { $('#answer').value = ans; return; }
+  if (e.target.closest('[data-answer]')) {
+    const v = $('#answer').value.trim(); if (!v) return $('#answer').focus();
+    r.answer = v; r.awaiting = false; r.term = [];
+    setStatus(r, 0, "Thanks. We've got your answer and we're back on it.");
+    r.unseen = false;
+    return renderAll();
+  }
+  const c = e.target.closest('[data-confirm]')?.dataset.confirm; if (!c) return;
+  if (c === 'yes') { r.confirmed = true; r.updates.push({t:Date.now(), s:3, text:'You confirmed the fix works. Report closed.'}); }
+  else { r.confirmed = null; setStatus(r, 1, "Thanks for telling us. We've reopened it and an agent is taking another look."); r.term = []; r.unseen = false; }
+  renderAll();
+});
+
+// ================= Agent queue =================
+const CODE = {
+  'pdf-renderer':{path:'services/pdf-renderer/src/render.ts:88', line:'RENDER_DEADLINE_MS = 30_000', why:'where the trail ends'},
+  'assistant-svc':{path:'services/assistant/src/tools/run.ts:41', line:'return draftReply  // tool status never checked', why:'where the assistant claimed success'},
+  'api-gateway':{path:'services/gateway/routes/export.ts:23', line:'await exportPdf(req)  // synchronous, no job queue', why:'why a slow render blocks the request'},
+};
+function waterfall(call, badId, cited) {
+  const hops = call.hops, total = hops[0].dur;
+  const step = total > 20000 ? 10000 : total > 6000 ? 2000 : total > 1500 ? 1000 : total > 300 ? 100 : 50;
+  const ticks = []; for (let v = 0; v <= total; v += step) ticks.push(v);
+  return `<div class="wf">${hops.map(h => {
+    const l = h.start / total * 100, w = Math.max(h.dur / total * 100, .8);
+    return `<div class="wf-row${isBad(h) ? ' bad' : h.warn ? ' warn' : ''}${cited?.has(h.id) ? ' cited' : ''}" style="--d:${depthOf(h, hops)}">
+      <div class="wf-label"><span class="svc">${esc(h.service)}${h.id === badId ? ' <span class="mk" title="Where it failed">!</span>' : ''}${cited?.has(h.id) ? ` <span class="mk" title="Cited by Claude">${cited.get(h.id)}</span>` : ''}</span><span class="op">${esc(h.op)}${h.note ? ' · ' + esc(h.note) : ''}</span><span class="id mono">${short(h.id)}</span></div>
+      <div class="wf-track"><span class="wf-bar" style="left:${l.toFixed(2)}%;width:${Math.min(w, 100 - l).toFixed(2)}%"></span></div>
+      <div class="wf-dur">${sec(h.dur)}</div></div>`;
+  }).join('')}
+  <div class="wf-axis"><span class="spc"></span><div class="wf-ticks">${ticks.map(v => `<span style="left:${(v / total * 100).toFixed(2)}%">${v === 0 ? '0' : sec(v)}</span>`).join('')}</div><span class="spc"></span></div></div>`;
+}
+function agentScript(rep) {
+  const b = rep.bundle, L = [];
+  const nEv = Object.keys(b.evidence).length;
+  L.push(['cmd', `/this-happened next`]);
+  L.push(['ok', `Pulled ${rep.key} "${rep.diag.title}"`]);
+  L.push(['dim', `  filed ${rep.origin === 'conversation' ? 'from the assistant' : 'with the ! button'} · ${nEv} pieces of evidence · ${rep.removed.length ? rep.removed.join(', ') + ' already removed' : 'nothing redacted'}`]);
+  // No trail of its own, but the user answered the agent's question: match it against known problems.
+  if (!rep.diag.bad && rep.answer) {
+    L.push(['dim', `  user answered: "${rep.answer}"`]);
+    const text = `${b.note || ''} ${rep.answer}`.toLowerCase();
+    const o = /export|pdf|arriv|download|invoice/.test(text) && reports.find(r => r !== rep && r.diag.root === 'pdf-renderer');
+    if (!o) { L.push(['warn', "The answer doesn't match a known problem. Handing this to a person on the Tallyho team."]); rep.handed = true; return L; }
+    rep.diag = {...o.diag, title:rep.diag.title, questions:1};
+    rep.linked = [o.key]; if (!o.linked.includes(rep.key)) o.linked.push(rep.key);
+    L.push(['ok', `No trail in this report, but the answer matches ${o.key}: ${o.diag.title}`]);
+    if (o.status === 3) { L.push(['ok', 'Already fixed by PR #812.']); L.push(['status', 3]); return L; }
+  }
+  const d = rep.diag;
+  if (d.bad) {
+    L.push(['ok', `Followed trail ${short(d.call.id)} across ${new Set(d.call.hops.map(h => h.service)).size} services`]);
+    L.push(['err', `Ends at ${d.bad.service}: ${d.bad.op} → ${d.bad.note || d.bad.status}`]);
+    L.push(['code', `${CODE[d.bad.service].path}   ${CODE[d.bad.service].line}`]);
+    if (d.assistantLied) {
+      L.push(['warn', 'assistant-svc replied "sent" after pdf.export returned an error']);
+      L.push(['code', `${CODE['assistant-svc'].path}   ${CODE['assistant-svc'].line}`]);
+    }
+    const others = reports.filter(r => r !== rep && r.status < 3 && r.diag.root === d.root);
+    if (others.length) {
+      rep.linked = others.map(r => r.key);
+      others.forEach(o => { if (!o.linked.includes(rep.key)) o.linked.push(rep.key); });
+      L.push(['ok', `Same trail end as ${rep.linked.join(', ')}. Linked, so every affected user gets the updates.`]);
+    }
+    L.push(['cmd', `npm run repro -- --bundle ${short(b.report_id)}`]);
+    L.push(['err', `Reproduced: 504 after 30.0 s on ${d.call.count} invoices (12 invoices: OK in 3.4 s)`]);
+    L.push(['ok', `Wrote failing tests: pdf-renderer/test/large-batch.test.ts${d.assistantLied ? ', assistant/test/tool-failure-honesty.test.ts' : ''}`]);
+    L.push(['status', 1]);
+    L.push(['ok', `Fix: render exports in pages of 20${d.assistantLied ? '; assistant checks tool status before replying' : ''}. Tests pass.`]);
+    L.push(['cmd', '/pr-submit']);
+    L.push(['ok', 'Opened draft PR #812 "Paginate large PDF exports" · waiting for human review']);
+    L.push(['status', 2]);
+  } else {
+    L.push(['warn', 'No failing call in the captured window, so there is no trail to follow.']);
+    L.push(['ask', 1]);
+    L.push(['dim', '  Asked the reporter one question. Waiting for the answer in My reports.']);
+  }
+  return L;
+}
+function applyStatus(rep, s) {
+  const group = [rep, ...reports.filter(r => rep.linked.includes(r.key))];
+  group.forEach(r => { if (r.status < s || (r === rep && r.status !== s)) setStatus(r, s, userText(r, s)); });
+  return `Status → "${STATUS[s]}" · update sent to ${group.length === 1 ? 'the reporter' : group.length + ' reporters'}`;
+}
+function runAgent() {
+  const rep = reports.find(r => r.key === selQueue);
+  if (!rep || running) return;
+  if (liveOn && sampleState !== 'off') return runLive(rep);
+  runScripted(rep);
+}
+function runScripted(rep) {
+  if (running) return;
+  rep.triage = null; rep.triageErr = null; rep.pr = null; rep.term = [];
+  playLines(rep, agentScript(rep));
+}
+function playLines(rep, lines) {
+  running = true;
+  let i = 0;
+  (function tick() {
+    if (i >= lines.length) { running = false; renderAll(); return; }
+    const [k, v] = lines[i++];
+    if (k === 'status') rep.term.push(['stat', applyStatus(rep, v)]);
+    else if (k === 'ask') { rep.awaiting = true; rep.term.push(['stat', applyStatus(rep, v)]); }
+    else rep.term.push([k, v]);
+    renderAll();
+    setTimeout(tick, k === 'cmd' ? 750 : 480);
+  })();
+}
+function mergeFix() {
+  const rep = reports.find(r => r.key === selQueue);
+  if (!rep || rep.status !== 2) return;
+  rep.term.push(['ok', `PR #812${rep.pr ? ` "${rep.pr.title}"` : ''} approved and merged by a person · deployed to production`]);
+  rep.term.push(['stat', applyStatus(rep, 3)]);
+  renderAll();
+}
+
+// ================= Live triage: real Claude via the sample capability; the scripted run is the fallback =================
+// window.claude exists only inside the claude.ai viewer. use() can take ~10 s to resolve null, so it resolves in the background.
+let sampleFn = null, sampleState = 'pending', liveOn = true, promptOpen = false;
+const samplePromise = (async () => {
+  try { return window.claude ? (await window.claude.use('sample')) || null : null; } catch { return null; }
+})().then(fn => { sampleFn = fn; sampleState = fn ? 'ready' : 'off'; if (!running) renderAll(); return fn; });
+const QUIET = ['not_granted', 'sampling_disabled', 'capability_disabled', 'not_declared', 'capability_removed'];
+const TRI_MSG = {rate_limited:'Claude is busy right now (rate limited).', upstream_error:'Claude had a problem on its side.',
+  invalid_json:"Claude's reply wasn't a usable triage.", empty_completion:'Claude sent back an empty reply.', refused:'Claude declined to triage this report.'};
+// Code map of the (fictional) Tallyho codebase, so the model has real paths to point at.
+const CODE_MAP = [
+  ['services/gateway/routes/export.ts', 'POST /api/invoices/export; awaits exportPdf(req) synchronously, no job queue'],
+  ['services/gateway/routes/reports.ts', 'GET /api/reports/summary'],
+  ['services/invoice-svc/src/export/batch.ts', 'builds an export batch and calls pdf-renderer'],
+  ['services/invoice-svc/src/reports/summary.ts', 'sums invoice totals for the dashboard'],
+  ['services/invoice-svc/src/db/queries.sql', 'SQL for invoice lists and sums'],
+  ['services/pdf-renderer/src/render.ts', 'renders pages; RENDER_DEADLINE_MS = 30_000 at line 88'],
+  ['services/pdf-renderer/src/fonts.ts', 'loads fonts from asset-cdn; no fallback font'],
+  ['services/fx-svc/src/rates.ts', 'currency conversion; caches daily rates'],
+  ['services/assistant/src/tools/run.ts', 'runs tools and drafts the reply; line 41 returns draftReply without checking tool status'],
+  ['services/assistant/src/prompts/v12.md', 'assistant system prompt'],
+  ['web/src/invoices/ExportButton.tsx', 'Export PDF button and its error toast'],
+  ['web/src/dashboard/MonthTotal.tsx', 'dashboard month total'],
+];
+const mkEl = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const kb = s => (new Blob([s]).size / 1024).toFixed(1);
+const streamTail = s => 'Claude › ' + (s.length > 700 ? '…' + s.slice(-700) : s);
+function hopIndex(b) {
+  const m = new Map();
+  (b.evidence.network || []).forEach(call => (call.hops || []).forEach(hop => m.set(hop.id, {hop, call})));
+  return m;
+}
+function resolveHop(idx, s) {
+  if (!s) return null;
+  if (idx.has(s)) return idx.get(s);
+  const [a, z] = s.split(/…|\.\.\./);
+  if (!a || a.length < 8) return null;
+  for (const [id, v] of idx) if (id.startsWith(a) && (!z || id.endsWith(z))) return v;
+  return null;
+}
+function buildPrompt(rep) {
+  const others = reports.filter(r => r !== rep).map(r => ({report_id:r.key, status:STATUS[r.status], title:r.diag.title,
+    note:r.bundle.note, summary:r.triage?.summary || r.diag.summary, trail_ends_at:r.diag.root}));
+  const shape = '{"summary":str,"category":"bug|ux|data|perf|other","severity":"low|medium|high|critical","likely_cause":str,"evidence":[{"breadcrumb_id":str,"why":str}],"duplicates":[{"report_id":str,"why":str}],"code_locations":[{"path":str,"why":str}],"repro_steps":[str],"question_for_user":str|null,"proposed_fix":str,"test_plan":[str],"plain_language_update":str,"confidence":0..1}';
+  const example = '{"summary":"CSV export drops the last invoice","category":"bug","severity":"medium","likely_cause":"Off-by-one in the row loop","evidence":[{"breadcrumb_id":"<a hop id copied from the bundle>","why":"returned 46 of 47 rows"}],"duplicates":[],"code_locations":[{"path":"services/invoice-svc/src/export/batch.ts","why":"builds the rows"}],"repro_steps":["Export a month with 47 invoices"],"question_for_user":null,"proposed_fix":"Fix the loop bound and check the row count","test_plan":["47 invoices in, 47 rows out"],"plain_language_update":"We found why your export was missing an invoice and we are fixing it.","confidence":0.7}';
+  let bundle = JSON.stringify(rep.bundle, null, 1);
+  if (bundle.length > 150000) bundle = bundle.slice(0, 150000) + '\n…(truncated)';
+  return [
+    'You are the triage agent for "This Happened!", a problem-report tool built into Tallyho, a fictional invoicing web app.',
+    'A user filed the report below. Read the redacted bundle (their note, screen, recent steps, network calls with their Breadcrumb trail, app log, assistant conversation, feature flags, device) and triage it.',
+    'Breadcrumb trail: every hop of a request has a UUID7 id and points at its parent hop; UUID7s sort by time. Cite hops by copying ids exactly from evidence.network[].hops[].id.',
+    'Rules: use only the evidence given. Never invent hop ids or report ids. duplicates may only use report_id values from OPEN_REPORTS, and only when the root cause is the same. Prefer paths from CODE_MAP for code_locations.'
+      + ` Set question_for_user to null unless you truly cannot go on without the reporter${rep.answer ? '; the reporter has already answered a question, so set it to null' : ''}.`
+      + ' plain_language_update is one or two short sentences to the reporter: plain words, no jargon, no ids. confidence is a number from 0 to 1.',
+    'Reply with ONLY one JSON object, no prose and no code fences, in exactly this shape:', shape,
+    'Example:', example, '',
+    `REPORT: ${rep.key}`,
+    rep.answer ? `QUESTION ASKED: ${rep.question || 'What were you doing, and what did you expect to happen?'}` : null,
+    rep.answer ? `REPORTER ANSWER: ${rep.answer}` : null,
+    "BUNDLE (already redacted in the reporter's browser):", bundle, '',
+    'CODE_MAP:', CODE_MAP.map(([p, w]) => `${p}  - ${w}`).join('\n'), '',
+    'OPEN_REPORTS:', JSON.stringify(others, null, 1),
+  ].filter(x => x != null).join('\n');
+}
+// The reply is not schema-checked: validate every field before it touches the page.
+function normTriage(x, rep) {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) throw {code:'invalid_json', message:'Claude replied, but not with a triage object.'};
+  const str = (v, n = 600) => typeof v === 'string' && v.trim() ? v.trim().slice(0, n) : null;
+  const list = (v, n) => Array.isArray(v) ? v.slice(0, n) : [];
+  const strs = (v, n) => list(v, n).map(s => str(s, 300)).filter(Boolean);
+  const one = (v, opts, d) => opts.includes(String(v).toLowerCase()) ? String(v).toLowerCase() : d;
+  const summary = str(x.summary, 300);
+  if (!summary) throw {code:'invalid_json', message:'Claude replied without a summary.'};
+  const idx = hopIndex(rep.bundle), seen = new Set();
+  const evidence = list(x.evidence, 8).map(e => {
+    const h = resolveHop(idx, str(e?.breadcrumb_id, 80));
+    if (!h || seen.has(h.hop.id)) return null;
+    seen.add(h.hop.id);
+    return {id:h.hop.id, service:h.hop.service, hop:h.hop, call:h.call, why:str(e.why, 300) || ''};
+  }).filter(Boolean);
+  const keys = new Set(reports.filter(r => r !== rep).map(r => r.key));
+  const duplicates = list(x.duplicates, 5).map(d => ({key:str(d?.report_id, 20), why:str(d?.why, 300) || ''}))
+    .filter((d, i, a) => d.key && keys.has(d.key) && a.findIndex(o => o.key === d.key) === i);
+  const code_locations = list(x.code_locations, 6).map(c => ({path:str(c?.path, 160), why:str(c?.why, 300) || ''})).filter(c => c.path);
+  let c = typeof x.confidence === 'number' ? x.confidence : typeof x.confidence === 'string' && x.confidence.trim() ? Number(x.confidence) : NaN;
+  if (c > 1 && c <= 100) c /= 100;
+  return {summary, category:one(x.category, ['bug', 'ux', 'data', 'perf', 'other'], 'other'), severity:one(x.severity, ['low', 'medium', 'high', 'critical'], 'medium'),
+    likely_cause:str(x.likely_cause), evidence, duplicates, code_locations, repro_steps:strs(x.repro_steps, 8),
+    question_for_user:str(x.question_for_user, 300), proposed_fix:str(x.proposed_fix), test_plan:strs(x.test_plan, 8),
+    plain_language_update:str(x.plain_language_update, 400), confidence:Number.isFinite(c) ? Math.min(1, Math.max(0, c)) : null};
+}
+const clip = (s, n) => { if (s.length <= n) return s; const k = s.lastIndexOf(' ', n - 1); return s.slice(0, k > 20 ? k : n - 1) + '…'; };
+function liveScript(rep, tri) {
+  const L = [], b = rep.bundle;
+  L.push(['ok', `Claude triage: ${tri.severity} ${tri.category}${tri.confidence != null ? ` · ${Math.round(tri.confidence * 100)}% confident` : ''}`]);
+  L.push(['dim', `  ${tri.summary}`]);
+  if (tri.likely_cause) L.push(['dim', `  likely cause: ${tri.likely_cause}`]);
+  tri.evidence.forEach(e => L.push([isBad(e.hop) ? 'err' : 'warn', `${short(e.id)} ${e.service}: ${e.why}`]));
+  tri.code_locations.forEach(c => L.push(['code', `${c.path}   ${c.why}`]));
+  const dups = tri.duplicates.map(x => reports.find(r => r.key === x.key)).filter(Boolean);
+  if (dups.length) {
+    dups.forEach(o => { if (!rep.linked.includes(o.key)) rep.linked.push(o.key); if (!o.linked.includes(rep.key)) o.linked.push(rep.key); });
+    L.push(['ok', `Claude says this is the same problem as ${dups.map(o => o.key).join(', ')}. Linked, so every affected user gets the updates.`]);
+    const done = dups.find(o => o.status === 3);
+    if (done) { L.push(['ok', `Already fixed under ${done.key}.`]); L.push(['status', 3]); return L; }
+  }
+  if (tri.question_for_user && !rep.answer) {
+    rep.question = tri.question_for_user;
+    rep.diag = {...rep.diag, questions:(rep.diag.questions || 0) + 1};
+    L.push(['warn', `Claude needs one answer before it can go on: ${tri.question_for_user}`]);
+    L.push(['ask', 1]);
+    L.push(['dim', '  Asked the reporter. Waiting for the answer in My reports.']);
+    return L;
+  }
+  L.push(['cmd', `npm run repro -- --bundle ${short(b.report_id)}`]);
+  tri.repro_steps.forEach((s, i) => L.push(['dim', `  ${i + 1}. ${s}`]));
+  L.push(['ok', 'Reproduced in the sandbox from the bundle']);
+  L.push(['status', 1]);
+  L.push(['ok', `Wrote ${tri.test_plan.length || 1} failing test${tri.test_plan.length === 1 ? '' : 's'} from the test plan`]);
+  tri.test_plan.forEach(t => L.push(['dim', `  · ${t}`]));
+  if (tri.proposed_fix) L.push(['ok', `Fix: ${tri.proposed_fix} Tests pass.`]);
+  L.push(['cmd', '/pr-submit']);
+  const title = clip((tri.proposed_fix || tri.summary).split(/(?<=[.!?])\s/)[0].replace(/[.!?]$/, ''), 72);
+  rep.pr = {title, body:[tri.summary, tri.likely_cause && 'Cause: ' + tri.likely_cause, tri.proposed_fix && 'Fix: ' + tri.proposed_fix,
+    tri.test_plan.length && 'Tests: ' + tri.test_plan.join('; '), `From report ${rep.key} (live Claude triage)`].filter(Boolean).join('\n')};
+  L.push(['ok', `Opened draft PR #812 "${title}" · waiting for human review`]);
+  L.push(['dim', `  ${rep.pr.body.split('\n').join('\n  ')}`]);
+  L.push(['status', 2]);
+  return L;
+}
+async function runLive(rep) {
+  if (running) return;
+  running = true; rep.thinking = true; rep.stream = ''; rep.triage = null; rep.triageErr = null; rep.pr = null;
+  rep.term = [['cmd', '/this-happened next'], ['ok', `Pulled ${rep.key} "${rep.diag.title}"`],
+    ['dim', `  ${Object.keys(rep.bundle.evidence).length} pieces of evidence · ${rep.removed.length ? rep.removed.join(', ') + ' already removed' : 'nothing redacted'}`]];
+  renderAll();
+  const sample = sampleFn || await samplePromise;
+  if (!sample) { rep.thinking = false; running = false; return runScripted(rep); }
+  rep.prompt = buildPrompt(rep);
+  rep.term.push(['dim', `  sent Claude the redacted bundle, its Breadcrumb trail, a code map and ${reports.length - 1} other reports (${kb(rep.prompt)} KB)`]);
+  const ac = rep.abort = new AbortController();
+  renderAll();
+  try {
+    const raw = await sample.json(rep.prompt, {modelTier:'default', signal:ac.signal, onText:({text}) => {
+      rep.stream = String(text ?? '');
+      const s = $('#tstream'); if (!s) return;
+      s.textContent = streamTail(rep.stream);
+      const tm = $('#term'); if (tm) tm.scrollTop = tm.scrollHeight;
+    }});
+    if (ac.signal.aborted) throw {code:'cancelled'};
+    const tri = normTriage(raw, rep);
+    rep.thinking = false; rep.abort = null; rep.triage = tri; running = false;
+    playLines(rep, liveScript(rep, tri));
+  } catch (e) {
+    rep.thinking = false; rep.abort = null; running = false;
+    const code = typeof e?.code === 'string' ? e.code : e?.name === 'AbortError' || ac.signal.aborted ? 'cancelled' : 'upstream_error';
+    if (code === 'cancelled') { rep.term = []; return renderAll(); }
+    if (QUIET.includes(code)) { sampleFn = null; sampleState = 'off'; return runScripted(rep); }
+    rep.triageErr = {code, message:TRI_MSG[code] || (typeof e?.message === 'string' && e.message.slice(0, 200)) || TRI_MSG.upstream_error};
+    rep.term.push(['err', `Live triage stopped (${code}). Nothing was changed.`]);
+    renderAll();
+  }
+}
+
+// Scenario variants, so the input (and the live triage) visibly changes. Each builds its own steps, calls and trail.
+const SCENARIOS = {
+  never:{label:'It never arrived', note:'Asked the assistant to export March invoices and email them to my accountant. It said they were sent, but nothing arrived.'},
+  blank:{label:'The PDF is blank', note:'Exported March invoices. The PDF downloaded, but every page is blank.'},
+  totals:{label:'Totals are wrong', note:'The March total on the dashboard says $48,912.40, but my invoices add up to $49,640.15.'},
+};
+const scn = {kind:'blank', note:SCENARIOS.blank.note};
+function scenarioCapture(kind, t) {
+  const r = makeRecorder(), T = s => t - s * 1000;
+  const device = {browser:browserName(), language:navigator.language, timezone:Intl.DateTimeFormat().resolvedOptions().timeZone, online:true, app:APP};
+  const scr = (route, heading, filter, msg, open) => ({route, heading, filter, assistant_open:open, visible_message:msg, viewport:'1440×900'});
+  const hopsCall = (t0, method, url, kind, count, list) => {
+    const ids = list.map(([k]) => uuid7(t0 + k));
+    const hops = list.map(([, p, service, op, start, dur, status, extra], i) => ({id:ids[i], parent:p == null ? null : ids[p], service, op, start, dur, status, ...extra}));
+    const c = {id:hops[0].id, t:t0, kind, via:'button', method, url, status:200, dur:hops[0].dur, count, headers:{'Authorization':TOKEN, 'X-Breadcrumb':hops[0].id}, hops};
+    r.net.push(c); return c;
+  };
+  if (kind === 'never') {
+    const say = text => { act(r, T(80), 'chat', 'Assistant', text); r.convo.push({t:T(80), role:'user', text}); };
+    say('Export March invoices and email them to my accountant');
+    log(r, T(79), 'info', 'assistant: tool invoices.list month=2026-03');
+    const c = simExport(r, T(79), '2026-03', 'assistant'), gw = c.hops.find(h => h.service === 'api-gateway');
+    r.convo.push({t:T(78), role:'tool', tool:'invoices.list', args:'month=2026-03', status:'ok', result:'47 invoices', trail:c.hops[2].id},
+      {t:T(78), role:'tool', tool:'pdf.export', args:'month=2026-03, send_to=accountant', status:'error: 504 after 30 s', result:null, trail:gw.id});
+    log(r, T(48), 'error', `assistant: tool pdf.export failed: 504 Gateway Timeout (breadcrumb ${gw.id})`);
+    r.convo.push({t:T(47), role:'assistant', text:"Done! I've emailed the March 2026 invoices (47) to your accountant as a PDF."});
+    act(r, T(12), 'chat', 'Assistant', 'It never arrived'); r.convo.push({t:T(12), role:'user', text:'It never arrived'});
+    return capture(r, {t, screen:scr('/invoices?month=2026-03', 'Invoices', 'March 2026', null, true), device});
+  }
+  if (kind === 'blank') {
+    act(r, T(70), 'click', 'Export PDF', 'March 2026, 47 invoices');
+    log(r, T(70), 'info', `export started: month=2026-03 count=47 user=${USER.email}`);
+    hopsCall(T(70), 'POST', '/api/invoices/export?month=2026-03', 'export', 47, [
+      [0, null, 'web (browser)', 'click "Export PDF"', 0, 3610, 'ok'],
+      [11, 0, 'api-gateway', 'POST /api/invoices/export', 11, 3596, '200'],
+      [29, 1, 'invoice-svc', 'export batch (47 invoices)', 29, 3560, '200'],
+      [37, 2, 'postgres', 'SELECT invoices (47 rows)', 37, 94, 'ok'],
+      [205, 2, 'pdf-renderer', 'render v2, 47 pages', 205, 3330, '200', {warn:true, note:'0 text glyphs embedded'}],
+      [260, 4, 'asset-cdn', 'GET /fonts/plex-sans-v3.woff2', 260, 41, '404'],
+    ]);
+    log(r, T(66), 'info', 'export ready: tallyho-2026-03.pdf (47 pages, 19 KB)');
+    act(r, T(40), 'click', 'Open download', 'tallyho-2026-03.pdf');
+    return capture(r, {t, screen:scr('/invoices?month=2026-03', 'Invoices', 'March 2026', 'Downloaded tallyho-2026-03.pdf', false), device});
+  }
+  act(r, T(150), 'click', 'Nav', 'Dashboard');
+  hopsCall(T(150), 'GET', '/api/reports/summary?month=2026-03', 'summary', 47, [
+    [0, null, 'web (browser)', 'open Dashboard', 0, 412, 'ok'],
+    [8, 0, 'api-gateway', 'GET /api/reports/summary', 8, 398, '200'],
+    [19, 1, 'invoice-svc', 'sum totals (47 invoices)', 19, 371, '200'],
+    [27, 2, 'postgres', "SELECT SUM(amount) WHERE status IN ('paid','due')", 27, 66, 'ok', {note:'overdue invoices not in the sum'}],
+    [101, 2, 'fx-svc', 'convert SGD → USD (9 invoices)', 101, 274, '200', {warn:true, note:'rate cached 2026-02-01'}],
+  ]);
+  log(r, T(149), 'info', 'dashboard: march_total=48912.40 USD (47 invoices, fx SGD→USD)');
+  act(r, T(120), 'click', 'Nav', 'Invoices');
+  act(r, T(95), 'click', 'Export CSV', 'March 2026, 47 invoices');
+  hopsCall(T(95), 'GET', '/api/invoices.csv?month=2026-03', 'export', 47, [
+    [0, null, 'web (browser)', 'click "Export CSV"', 0, 188, 'ok'],
+    [7, 0, 'api-gateway', 'GET /api/invoices.csv', 7, 176, '200'],
+    [18, 1, 'invoice-svc', 'csv (47 rows, amounts in invoice currency)', 18, 150, '200'],
+  ]);
+  act(r, T(30), 'click', 'Nav', 'Dashboard');
+  return capture(r, {t, screen:scr('/dashboard?month=2026-03', 'Dashboard', 'March 2026', 'March total: $48,912.40', false), device});
+}
+function fileScenario() {
+  if (running) return;
+  const t = Date.now(), origin = scn.kind === 'never' ? 'conversation' : 'button';
+  const cap = scenarioCapture(scn.kind, t);
+  const {data, removed} = buildBundle(cap, scn.note.trim(), Object.fromEntries(EVIDENCE.map(e => [e.key, true])), origin);
+  const rep = addReport({bundle:data, removed, diag:diagnose(data), origin, t, captureMs:2});
+  selQueue = rep.key; selMine = rep.key;
+  renderAll();
+}
+function fillTerm(term, rep) {
+  const line = (k, t) => term.appendChild(mkEl('div', 'l ' + k, t));
+  const cursor = () => term.appendChild(mkEl('div', 'l')).appendChild(mkEl('span', 'cursor'));
+  term.replaceChildren();
+  if (!rep.term.length) { line('dim', rep.status === 3 ? 'Done. Fixed and shipped.' : 'Ready. Run the agent to watch it pick up this report.'); return cursor(); }
+  rep.term.forEach(([k, t]) => line(k, t));
+  if (rep.thinking) line('dim', rep.stream ? streamTail(rep.stream) : 'Thinking…').id = 'tstream';
+  if (running) cursor();
+}
+function fillTriage(box, rep) {
+  const tri = rep.triage, add = (p, tag, cls, text) => p.appendChild(mkEl(tag, cls, text));
+  box.replaceChildren();
+  const h = add(box, 'div', 'sec-h');
+  add(h, 'h3', '', 'First read'); add(h, 'span', 'chip y', 'Live: Claude triage');
+  add(h, 'span', 'sub', `${tri.severity} · ${tri.category}${tri.confidence != null ? ` · ${Math.round(tri.confidence * 100)}% confident` : ''}`);
+  if (tri.likely_cause) add(box, 'p', '', tri.likely_cause);
+  const sec = (title, items, ordered, fill) => {
+    if (!items.length) return;
+    add(add(box, 'div', 'sec-h'), 'h3', '', title);
+    const ul = add(box, ordered ? 'ol' : 'ul');
+    items.forEach((it, i) => fill(add(ul, 'li'), it, i));
+  };
+  sec('Breadcrumbs it cited', tri.evidence, false, (li, e, i) => {
+    add(li, 'b', '', e.service); li.append(` (${short(e.id)}): ${e.why}`);
+    add(li, 'span', 'mk', String(i + 1)).title = 'Cited breadcrumb';
+  });
+  sec('Same problem as', tri.duplicates, false, (li, d) => { add(li, 'b', '', d.key); if (d.why) li.append(': ' + d.why); });
+  sec('Repro', tri.repro_steps, true, (li, s) => { li.textContent = s; });
+  sec('Test plan', tri.test_plan, true, (li, s) => { li.textContent = s; });
+  if (tri.proposed_fix) { add(add(box, 'div', 'sec-h'), 'h3', '', 'Proposed fix'); add(box, 'p', '', tri.proposed_fix); }
+  if (rep.question) { const a = add(box, 'div', 'ask'); add(a, 'b', '', 'Question for the reporter'); add(a, 'p', '', rep.question); }
+  if (tri.plain_language_update) { const p = add(box, 'p', 'note', tri.plain_language_update); p.title = 'What the reporter is told'; }
+}
+function renderQueue() {
+  if (!selQueue || !reports.find(r => r.key === selQueue)) selQueue = (reports.find(r => r.status === 0) || reports[0])?.key;
+  const rep = reports.find(r => r.key === selQueue);
+  const v = $('#view-queue');
+  const scrollTerm = v.querySelector('.term')?.scrollTop;
+  const af = document.activeElement, afId = af && v.contains(af) ? af.id : null, afSel = afId === 'scn-note' ? [af.selectionStart, af.selectionEnd] : null;
+  const d = rep.diag, b = rep.bundle, ev = b.evidence, tri = rep.triage;
+  const cited = new Map((tri?.evidence || []).map((e, i) => [e.id, i + 1]));
+  // Show the call Claude cited when it isn't the one the scripted read picked.
+  const wcall = (tri && !tri.evidence.some(e => e.call === d.call) && tri.evidence[0]?.call) || d.call;
+  const showPrompt = !!rep.prompt || sampleState === 'ready';
+  const promptText = showPrompt ? rep.prompt || buildPrompt(rep) : '';
+  const refs = r => r.map(n => `<span class="mk" title="Evidence ${n}">${n}</span>`).join('');
+  const services = d.call ? new Set(d.call.hops.map(h => h.service)).size : 0;
+  const chain = d.bad ? (() => { const p = []; let h = d.bad; while (h) { p.unshift(h); h = d.call.hops.find(x => x.id === h.parent); } return p; })() : [];
+  const codes = d.bad ? [d.bad.service, ...(d.assistantLied ? ['assistant-svc'] : []), 'api-gateway'].map(s => ({s, ...CODE[s]})) : [];
+  const canRun = !running && rep.status < 2 && !rep.awaiting && !rep.handed;
+  const why = rep.thinking ? 'Claude is reading the report. This can take up to a minute.'
+    : running ? 'The agent is working…'
+    : rep.triageErr ? "Live triage didn't finish. Try again, or use the scripted result."
+    : rep.awaiting ? 'Waiting for the reporter to answer in My reports.'
+    : rep.handed ? 'Handed to a person on the Tallyho team.'
+    : rep.status === 2 ? 'The draft PR needs a person to approve it.'
+    : rep.status === 3 ? 'Fixed. The reporter is asked to confirm in My reports.'
+    : 'Status changes appear in My reports.';
+  v.innerHTML = `
+  <div class="panel">
+    <div class="sec-h"><h3>Queue</h3><span class="sub">What Claude Code sees when it runs <span class="mono">/this-happened next</span></span></div>
+    <div class="table-wrap"><table class="qtable">
+      <thead><tr><th>Report</th><th>What happened</th><th>Filed</th><th>From</th><th>Status</th></tr></thead>
+      <tbody>${reports.map(r => `<tr data-q="${r.key}" aria-selected="${r.key === selQueue}" tabindex="0">
+        <td class="mono">${r.key}</td><td class="t">${esc(r.diag.title)}</td><td>${ago(r.t)}</td>
+        <td>${r.origin === 'conversation' ? 'Assistant' : '! button'}</td><td><span class="sp s${r.status}">${STATUS[r.status]}</span></td></tr>`).join('')}</tbody>
+    </table></div>
+    <div class="sec-h"><h3>Try it with other input</h3><span class="sub">files a new report through the same pipeline, so the triage changes with it</span></div>
+    <div class="scn">
+      <label for="scn-kind">Scenario<select id="scn-kind" ${running ? 'disabled' : ''}>${Object.entries(SCENARIOS).map(([k, s]) => `<option value="${k}"${k === scn.kind ? ' selected' : ''}>${esc(s.label)}</option>`).join('')}</select></label>
+      <label for="scn-note">What the user wrote<textarea id="scn-note" ${running ? 'disabled' : ''}></textarea></label>
+      <div><button class="btn-run" id="scn-file" ${running ? 'disabled' : ''}>File as a new report</button></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="wi-head">
+      <div class="ttl">
+        <p class="eyebrow"><span class="mono">${rep.key}</span><span class="chip">${rep.origin === 'conversation' ? 'From the assistant' : 'With the ! button'}</span><span class="sp s${rep.status}">${STATUS[rep.status]}</span>${rep.linked.length ? `<span class="chip y">Linked: ${rep.linked.join(', ')}</span>` : ''}</p>
+        <h2>${esc(d.title)}</h2>
+        <p class="muted" style="font-size:14px">Filed ${ago(rep.t)} by ${esc(b.reporter)} · ${esc(b.app)}${rep.captureMs ? ` · captured in ${rep.captureMs} ms` : ''}</p>
+      </div>
+      <div class="stats">
+        <div><b>${d.questions}</b><span>questions asked of the user</span></div>
+        <div><b>${services}</b><span>services on the trail</span></div>
+        <div><b>${Object.keys(ev).length}</b><span>pieces of evidence</span></div>
+      </div>
+    </div>
+    <div class="sawdid">
+      <div class="saw"><p class="label">What the user saw</p><blockquote>${d.saw ? `“${esc(d.saw)}”` : 'No message on screen.'}</blockquote></div>
+      <div class="did"><p class="label">What actually happened${tri ? ' · Claude' : ''}</p><p id="did-text"></p></div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="col">
+      <div class="panel">
+        <div class="sec-h"><h3>Claude Code</h3>${tri || rep.thinking ? '<span class="chip y">Live: Claude triage</span>' : rep.term.length && !rep.triageErr ? '<span class="chip">Scripted (offline)</span>' : ''}<span class="sub">agent session on ${rep.key}</span></div>
+        <div class="term" id="term" role="log" aria-label="Agent session"></div>
+        <div class="term-bar">
+          <button class="btn-run" id="run" ${canRun ? '' : 'disabled'}>Run agent on ${rep.key}</button>
+          ${rep.thinking ? '<button class="btn-o" id="stop">Stop</button>' : ''}
+          <button class="btn-o" id="merge" ${rep.status === 2 && !running ? '' : 'disabled'}>Approve and merge PR</button>
+          ${sampleState === 'ready' ? `<label class="sim" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="live-on" ${liveOn ? 'checked' : ''} ${running ? 'disabled' : ''}>Live Claude triage</label>` : ''}
+          <span class="sim">${esc(why)}</span>
+        </div>
+      </div>
+      ${wcall && ev.network ? `<div class="panel">
+        <div class="sec-h"><span class="mk">3</span><h3>Breadcrumb trail</h3><span class="sub mono">${esc(wcall.method)} ${esc(wcall.url)} → ${wcall.status}</span></div>
+        ${waterfall(wcall, wcall === d.call ? d.bad?.id : null, cited)}
+        ${chain.length && wcall === d.call ? `<p class="chain">${chain.map(h => `<b>${esc(h.service)}</b> ${short(h.id)}`).join(' → ')}</p>` : ''}
+        <p class="sim">Each hop gets a UUID7 that points at its parent. UUID7s sort by time, so the trail reads in order without a shared clock.${cited.size ? ' Hops edged in yellow are the ones Claude cited.' : ''}</p>
+      </div>` : ''}
+    </div>
+    <div class="col">
+      <div class="panel diag">
+        ${rep.triageErr ? `<div class="tri-err" role="alert"><b>Live triage didn't finish</b><p id="tri-err-msg"></p>
+          <div class="row"><button class="btn-b" id="tri-retry" ${running ? 'disabled' : ''}>Try again</button><button class="btn-o" id="tri-script" ${running ? 'disabled' : ''}>Use the scripted result</button></div></div>` : ''}
+        ${tri ? '<div class="tri-live" id="tri-live"></div>' : `
+        <div class="sec-h"><h3>First read</h3><span class="chip">Scripted (offline)</span><span class="sub">${sampleState === 'ready' && liveOn ? 'run the agent for a live Claude triage' : 'rules over the bundle'}</span></div>
+        <ul>${d.causes.map(c => `<li>${esc(c.text)}${refs(c.refs)}</li>`).join('')}</ul>
+        <div class="sec-h"><h3>Suggested next steps</h3></div>
+        <ol>${d.next.map(n => `<li>${esc(n)}</li>`).join('')}</ol>
+        <p class="muted" style="font-size:14px">Confidence: <b style="color:var(--ink)">${d.conf}</b> · ${esc(d.confWhy)}</p>`}
+      </div>
+      ${tri && tri.code_locations.length ? `<div class="panel"><div class="sec-h"><h3>Trail to code</h3><span class="chip y">Live</span><span class="sub">paths Claude pointed at</span></div>
+        <ul class="codes" id="codes-live"></ul></div>`
+      : !tri && codes.length ? `<div class="panel"><div class="sec-h"><h3>Trail to code</h3><span class="sub">example paths</span></div>
+        <ul class="codes">${codes.map(c => `<li><span class="p">${esc(c.path)}</span><span class="why">${esc(c.s)} · ${esc(c.why)}</span></li>`).join('')}</ul></div>` : ''}
+      <div class="panel">
+        <div class="sec-h"><h3>What the agent may do</h3></div>
+        <div class="perm">
+          <div><h4>Can</h4><ul><li>Read the redacted bundle</li><li>Follow the trail into the code</li><li>Run the repro in a sandbox</li><li>Update status and write to the user</li><li>Open a draft PR</li></ul></div>
+          <div><h4>Can't</h4><ul><li>See anything removed before sending</li><li>Contact the user outside the report</li><li>Merge without a person's review</li></ul></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <details class="panel bundle" id="bundle" ${bundleOpen ? 'open' : ''}>
+    <summary>Agent bundle <span class="mono" style="color:var(--muted);font-weight:400">${b.schema}</span><button class="copy" id="copy">Copy JSON</button></summary>
+    <pre id="json">${esc(JSON.stringify(b, null, 2))}</pre>
+  </details>
+  ${showPrompt ? `<details class="panel bundle" id="claude-saw" ${promptOpen ? 'open' : ''}>
+    <summary>What Claude ${rep.prompt ? 'saw' : 'will see'} <span class="mono" style="color:var(--muted);font-weight:400">${rep.prompt ? 'exact prompt sent' : 'prompt preview'} · ${kb(promptText)} KB</span></summary>
+    <p class="sim" style="margin-top:10px">The redacted bundle from the reporter's browser, a code map and the other open reports. Nothing removed before sending is in here.</p>
+    <pre id="prompt-pre"></pre>
+  </details>` : ''}`;
+  const term = $('#term');
+  fillTerm(term, rep);
+  if (term) term.scrollTop = running ? term.scrollHeight : (scrollTerm ?? term.scrollHeight);
+  $('#did-text').textContent = tri ? tri.summary : d.summary;
+  if (tri) fillTriage($('#tri-live'), rep);
+  if ($('#codes-live')) $('#codes-live').replaceChildren(...tri.code_locations.map(c => {
+    const li = mkEl('li'), known = CODE_MAP.some(([p]) => c.path.split(':')[0] === p);
+    li.append(mkEl('span', 'p', c.path), mkEl('span', 'why', `${c.why}${known ? '' : ' (not in the code map)'}`));
+    return li;
+  }));
+  if ($('#tri-err-msg')) $('#tri-err-msg').textContent = `${rep.triageErr.message} The scripted run still works offline.`;
+  if ($('#prompt-pre')) $('#prompt-pre').textContent = promptText;
+  $('#claude-saw')?.addEventListener('toggle', e => { promptOpen = e.currentTarget.open; });
+  $('#stop')?.addEventListener('click', () => rep.abort?.abort());
+  $('#live-on')?.addEventListener('change', e => { liveOn = e.target.checked; renderAll(); });
+  $('#tri-retry')?.addEventListener('click', () => runLive(rep));
+  $('#tri-script')?.addEventListener('click', () => runScripted(rep));
+  $('#scn-note').value = scn.note;
+  $('#scn-kind').addEventListener('change', e => { scn.kind = e.target.value; scn.note = SCENARIOS[scn.kind].note; $('#scn-note').value = scn.note; });
+  $('#scn-note').addEventListener('input', e => { scn.note = e.target.value; });
+  $('#scn-file').addEventListener('click', fileScenario);
+  if (afId && $('#' + afId)) { const n = $('#' + afId); n.focus({preventScroll:true}); if (afSel) n.setSelectionRange(...afSel); }
+  $('#run').addEventListener('click', runAgent);
+  $('#merge').addEventListener('click', mergeFix);
+  $('#bundle').addEventListener('toggle', e => { bundleOpen = e.currentTarget.open; });
+  $('#copy').addEventListener('click', e => {
+    e.preventDefault();
+    const btn = e.currentTarget;
+    navigator.clipboard.writeText(JSON.stringify(b, null, 2)).then(() => { btn.textContent = 'Copied'; }, () => {
+      $('#bundle').open = true;
+      const rg = document.createRange(); rg.selectNodeContents($('#json'));
+      const s = getSelection(); s.removeAllRanges(); s.addRange(rg);
+      btn.textContent = 'Selected. Press Copy';
+    });
+  });
+  v.querySelectorAll('[data-q]').forEach(tr => {
+    const pick = () => { if (running) return; selQueue = tr.dataset.q; renderAll(); };
+    tr.addEventListener('click', pick);
+    tr.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+  });
+}
+
+// ================= Tabs + render =================
+function renderPills() {
+  const u = reports.filter(r => r.unseen).length, q = reports.filter(r => r.status === 0).length;
+  $('#pill-mine').hidden = !u; $('#pill-mine').textContent = u;
+  $('#pill-queue').hidden = !q; $('#pill-queue').textContent = q;
+}
+function renderAll() { renderMine(); renderQueue(); renderPills(); }
+function selectTab(which) {
+  ['app', 'mine', 'queue'].forEach(k => {
+    $('#tab-' + k).setAttribute('aria-selected', String(k === which));
+    $('#view-' + k).hidden = k !== which;
+  });
+  renderAll();
+}
+['app', 'mine', 'queue'].forEach(k => $('#tab-' + k).addEventListener('click', () => selectTab(k)));
+
+// ================= Seed data: earlier reports from Maya, built with the same pipeline =================
+(function seed() {
+  const now = Date.now(), D = 86400e3;
+  // TH-0004: an older report, fixed and confirmed.
+  {
+    const t = now - 3 * D;
+    const cap = {t, user:USER.email,
+      screen:{route:'/customers?q=cafe%20lumiere', heading:'Customers', filter:'Search: cafe lumiere', visible_message:'No customers match "cafe lumiere"', viewport:'1440×900'},
+      actions:[{t:t - 9000, type:'click', target:'Nav', detail:'Customers'}, {t:t - 5000, type:'chat', target:'Search', detail:'cafe lumiere'}],
+      network:[], console:[], conversation:null, flags:{...FLAGS},
+      device:{browser:'Chrome 141 on macOS', language:'en-SG', timezone:'Asia/Singapore', online:true, app:'Tallyho web 3.13.9 (build 8790)'}};
+    const {data, removed} = buildBundle(cap, "Search can't find Café Lumière unless I type the accent.", {screen:1, actions:1, flags:1, device:1}, 'button');
+    const rep = addReport({bundle:data, removed, origin:'button', t, key:'TH-0004', captureMs:2,
+      diag:{title:"Search can't find Café Lumière without the accent", saw:'No customers match "cafe lumiere"', summary:'Customer search compared names without folding accents, so "cafe" never matched "Café".',
+        causes:[{text:'Search query and stored name differ only by an accent.', refs:[1]}], next:[], conf:'High', confWhy:'reproduced from the captured steps', call:null, bad:null, root:'search', assistantLied:false, questions:0}});
+    rep.status = 3;
+    rep.updates = [
+      {t, s:0, text:"We got your report and everything we need with it. You don't need to send anything else."},
+      {t:t + 0.1 * D, s:1, text:'We found it: search treats "cafe" and "café" as different words.'},
+      {t:t + 0.6 * D, s:2, text:'A fix is in review: search will ignore accents.'},
+      {t:t + 1.2 * D, s:3, text:'Fixed. Search now finds names with or without accents.'},
+      {t:t + 1.3 * D, s:3, text:'You confirmed the fix works. Report closed.'},
+    ];
+    rep.confirmed = true;
+    rep.term = [['ok', 'Fixed in PR #797 · confirmed by the reporter']];
+  }
+  // TH-0006: the export failure, filed with the ! button 40 minutes ago, waiting in the queue.
+  {
+    const r = makeRecorder(), t = now - 40 * 60e3, T = s => t - s * 1000;
+    act(r, T(250), 'select', 'Month filter', 'February 2026');
+    act(r, T(238), 'click', 'Export PDF', 'February 2026, 12 invoices');
+    log(r, T(238), 'info', `export started: month=2026-02 count=12 user=${USER.email}`);
+    simExport(r, T(238), '2026-02', 'button');
+    log(r, T(234), 'info', 'export ready: tallyho-2026-02.pdf (12 pages)');
+    act(r, T(201), 'select', 'Month filter', 'March 2026');
+    act(r, T(190), 'click', 'Export PDF', 'March 2026, 47 invoices');
+    log(r, T(190), 'info', `export started: month=2026-03 count=47 user=${USER.email}`);
+    const c = simExport(r, T(190), '2026-03', 'button');
+    log(r, T(160), 'error', `Export failed: 504 Gateway Timeout (breadcrumb ${c.id})`);
+    act(r, T(160), 'saw', 'Error message', ERR_TEXT);
+    act(r, T(4), 'click', 'This Happened! (!)');
+    const cap = capture(r, {t,
+      screen:{route:'/invoices?month=2026-03', heading:'Invoices', filter:'March 2026', assistant_open:false, visible_message:ERR_TEXT, viewport:'1440×900'},
+      device:{browser:'Chrome 141 on macOS', language:'en-SG', timezone:'Asia/Singapore', online:true, app:APP}});
+    cap.conversation = null;
+    const {data, removed} = buildBundle(cap, 'Trying to export March invoices for my accountant. February worked fine.', {screen:1, actions:1, network:1, console:1, flags:1, device:1}, 'button');
+    addReport({bundle:data, removed, diag:diagnose(data), origin:'button', t, key:'TH-0006', captureMs:3});
+  }
+})();
+
+// ================= Boot =================
+renderApp();
+setAsst(true);
+// The greeting is rendered directly so it isn't recorded as part of the user's conversation.
+addHTML(`<div class="m a">Hi Maya. I can find invoices, export them, or show you how things work. If something goes wrong, just tell me and I'll report it for you.</div>`);
+addHTML(chipsHTML(['Export March invoices and email them to my accountant', 'How do I mark an invoice paid?', 'Something went wrong']));
+renderAll();
+</script>
