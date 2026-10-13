@@ -11,14 +11,15 @@ inputs:
   - agency/workstreams/this-happened/seeds/directive-spec-provider-stack-20260410.md
   - agency/workstreams/this-happened/transcripts/transcript-bootstrap-1b1-20260509.md
   - usr/jordan/captain/captain-handoff.md
-  - opus-5-5-build-day prototype: agency/workstreams/opus-5-5-build-day/prototypes/this-happened.html
+  - agency/workstreams/this-happened/prototypes/this-happened.html (prototype, copied from opus-5-5-build-day on 2026-10-13)
 ---
 
 # This Happened! — Product Vision & Requirements (Rev 1)
 
 ## How to read this document
 
-- **Decided** items come from the principal: the four bootstrap decisions (1B1 transcript, 2026-05-09), the stack directive (2026-04-10), and the 2026-10-13 direction to replace the prototype's rule-based diagnosis with real Claude triage and to mock "How Do I" (Show me / Do it for me) well enough to show the idea. Nothing else in this document is a principal decision.
+- **Decided** items come from the principal: the four bootstrap decisions (1B1 transcript, 2026-05-09) and the stack directive (2026-04-10), D1–D5 below. Nothing else in this document is a principal decision.
+- **Principal direction for the prototype** (2026-10-13): replace the prototype's rule-based diagnosis with real Claude triage, and mock "How Do I" well enough to show the idea. These are kept as D6 and D7 so references stay stable, but they were given about the prototype and are pending ratification as product decisions.
 - Everything else is a proposal. Where a proposal rests on an assumption the principal has not ruled on, it is marked **Open question:** with a recommended answer. Resolve by commenting on the item.
 - The captain handoff (2026-05-09) suggested some success criteria and non-goals. Those were captain suggestions, not principal decisions, so they appear here as open questions where they matter.
 - Requirement IDs (FR-, PR-, NFR-, SM-) are stable. A&D and Plan should cite them.
@@ -32,10 +33,17 @@ inputs:
 | D3 | 1B1 Item 3 | Reference Source license on both workstreams, with two separate LICENSE files so either can be re-licensed independently. |
 | D4 | 1B1 Item 4 | Bootstrap via `agency init`. |
 | D5 | Stack directive | Backend NestJS; frontend React + Next.js; real running applications, not CLI tools. |
+
+### Principal direction for the prototype (2026-10-13), pending ratification
+
+Given during the 2026-10-13 build session about the prototype. Not part of the locked log until the principal ratifies them as product decisions.
+
+| # | Source | Direction |
+|---|---|---|
 | D6 | 2026-10-13 request | Triage is done by Claude for real, not by rules. The prototype's rule-based `diagnose()` is a stand-in to be replaced. |
 | D7 | 2026-10-13 request | "How Do I": mock something that shows the idea. (The principal's words were "mock something that shows the idea to a degree", said about the prototype. The "Show me / Do it for me" split and "companion surface" framing come from the prototype, not from a principal ruling.) |
 
-Note on D6: the principal's direction was given about the prototype ("replace the fake diagnosis with real Claude triage"). Carrying it into the product as "triage is performed by Claude" is this document's reading of that direction; it is consistent with the request but has not been separately confirmed.
+Note on D6: the principal's direction was given about the prototype ("replace the fake diagnosis with real Claude triage"). Carrying it into the product as "triage is performed by Claude" is this document's reading of that direction; it is consistent with the request but has not been separately confirmed. Requirements that cite D6 or D7 rest on that pending ratification.
 
 ---
 
@@ -151,8 +159,8 @@ Breadcrumb must be usable on its own (retrofit at an API gateway for existing sy
 
 ### J4 — Agent triage → reproduce → fix → verify (P3, P2)
 
-1. The agent runs `/this-happened next` (or is dispatched) and claims the oldest untriaged report.
-2. **Triage (Claude):** from the redacted bundle alone, it writes a first read: a title, what the user saw, a summary, the likely causes with each cause citing the numbered evidence it rests on, a confidence level with a reason, and suggested next steps. Status becomes "Looking into it" and the user gets a plain-language update.
+1. **First read (Claude, automatic on receipt):** from the redacted bundle alone, the service writes a first read: a title, what the user saw, a summary, the likely causes with each cause citing the numbered evidence it rests on, a confidence level with a reason, and suggested next steps. Status becomes "Looking into it" and the user gets a plain-language update. (This assumes open question 13 is answered "automatic on receipt".)
+2. **Claim:** the agent runs `/this-happened next` (or is dispatched) and claims the oldest claimable report: one that has a first read, or one whose automatic first read failed. For a failed one, the agent writes the first read itself in its session before going on. Reports still waiting for their automatic first read are not claimable. If open question 13 is answered "only on agent pull", step 1 moves into the agent session and the agent claims received reports directly.
 3. **Follow the trail:** from the deepest failing Breadcrumb hop to that service's logs and code paths.
 4. **Ask, if needed:** if evidence is insufficient, it asks the reporter at most one question through the report, then waits.
 5. **Reproduce:** runs the repro in a sandbox and records the result.
@@ -244,19 +252,19 @@ Each requirement is written to be testable. "MUST" is required for Rev 1; "SHOUL
 ### 6.6 Agent queue and triage (FR-TRI)
 
 - **FR-TRI-1** The service MUST expose a queue the agent can claim from, with at-most-one active claim per report.
-- **FR-TRI-2** Triage MUST be performed by Claude (D6) reading the redacted bundle, and MUST produce: title, what the user saw, summary, causes (each with evidence references), confidence (High/Medium/Low) with a one-line reason, and suggested next steps.
+- **FR-TRI-2** Triage MUST be performed by Claude (D6, pending ratification) reading the redacted bundle, and MUST produce: title, what the user saw, summary, causes (each with evidence references), confidence (High/Medium/Low) with a one-line reason, and suggested next steps.
 - **FR-TRI-3** Triage output MUST be structured (validated against a schema) so the console and the user-facing text can be generated from it.
-- **FR-TRI-4** The agent MUST generate the reporter-facing update text separately from the technical summary, in plain language, with no internal service names or IDs.
+- **FR-TRI-4** The agent MUST generate the reporter-facing update text separately from the technical summary, in plain language, with no internal service names or IDs. Reporter-facing text written by a model (updates and questions) MUST NOT contain links, phone numbers, email addresses, or requests for credentials, codes or payment details; text that does is replaced by a fixed template before the reporter sees it.
 - **FR-TRI-5** When evidence is insufficient, the agent MUST ask at most one question per triage pass, through the report.
 - **FR-TRI-6** If triage fails (model error, timeout, schema-invalid output), the report MUST remain in the queue with an error recorded; no fabricated diagnosis is shown.
-- **FR-TRI-7** The agent SHOULD detect likely duplicates (same failing hop/service and signature) and link them, without merging reports.
+- **FR-TRI-7** The agent SHOULD detect likely duplicates (same failing hop/service and signature) and link them, without merging reports. Only open reports are duplicate candidates, and triage never sets a status beyond "Looking into it" (Fixed comes only from FR-FIX-4).
 - **FR-TRI-8** The agent MUST check its own tool results before reporting success (the failure mode in J2 must not be reproduced by the fixing agent).
 
 **Open question:** Where does the agent run — the app team's own Claude Code session against their repo, or an Agency-hosted agent with repo access? **Recommendation:** Rev 1 runs in the app team's Claude Code (a skill/command plus the service API); a hosted runner is a later option.
 
 **Open question:** Is triage automatic on receipt, or only when an agent session runs `/this-happened next`? **Recommendation:** automatic first-read triage on receipt (fast first status for the reporter); reproduce/fix only in an agent session.
 
-**Open question:** Should triage also assign severity/category, and should the queue be ordered by it? FR-TRI-1 implies first-in-first-out ("oldest untriaged"); the prototype's live triage (2026-10-13) outputs `severity`, `category`, a numeric 0–1 confidence, `code_locations`, `proposed_fix` and `test_plan`, which differ from FR-TRI-2 (High/Medium/Low, no severity). **Recommendation:** add severity (low…critical) to FR-TRI-2 and order the queue by severity then age; keep High/Medium/Low confidence for reporter-facing and console display; drop `code_locations`/`proposed_fix` from receipt-time triage, because that call has no code access and would be guessing (they belong to the agent session).
+**Open question:** Should triage also assign severity/category, and should the queue be ordered by it? FR-TRI-1 and J4 imply first-in-first-out ("oldest claimable"); the prototype's live triage (2026-10-13) outputs `severity`, `category`, a numeric 0–1 confidence, `code_locations`, `proposed_fix` and `test_plan`, which differ from FR-TRI-2 (High/Medium/Low, no severity). **Recommendation:** add severity (low…critical) to FR-TRI-2 and order the queue by severity then age; keep High/Medium/Low confidence for reporter-facing and console display; drop `code_locations`/`proposed_fix` from receipt-time triage, because that call has no code access and would be guessing (they belong to the agent session).
 
 ### 6.7 Reproduce, fix, verify (FR-FIX)
 
@@ -305,7 +313,7 @@ Each requirement is written to be testable. "MUST" is required for Rev 1; "SHOUL
 ## 7. Consent, redaction, and privacy requirements (PR)
 
 - **PR-1 Local until Send.** Captured data MUST NOT leave the device before the reporter taps Send (verifiable: no network traffic to the service before Send).
-- **PR-2 Client-side redaction first.** Redaction MUST run in the browser before transmission. Rev 1 baseline: auth tokens/credentials (e.g., `Bearer …`, cookies, API keys), email addresses (masked), password and payment-card fields (never captured at all), plus app-declared sensitive fields.
+- **PR-2 Client-side redaction first.** Redaction MUST run in the browser before transmission. Rev 1 baseline: auth tokens/credentials (e.g., `Bearer …`, cookies, API keys), email addresses (masked), password and payment-card fields (never captured at all), plus app-declared sensitive fields. The same redaction MUST run on How Do I questions and on the reporter's answers to agent questions before they reach a model or storage.
 - **PR-3 Server-side second pass.** The service MUST re-run redaction on receipt and reject or scrub anything the client missed, recording what it scrubbed.
 - **PR-4 What you see is what is sent.** The drawer preview MUST be the post-redaction data. A test MUST show the preview and the transmitted bundle are identical.
 - **PR-5 Agent sees only the redacted bundle.** No unredacted copy is stored or reachable by the agent.
@@ -327,7 +335,7 @@ Each requirement is written to be testable. "MUST" is required for Rev 1; "SHOUL
 
 ## 8. Non-functional requirements (NFR)
 
-- **NFR-1 Capture cost.** Opening the drawer (snapshot + redaction preview) SHOULD take under 50 ms on a mid-range laptop for default buffer sizes. The prototype measures this.
+- **NFR-1 Capture cost.** Opening the drawer (snapshot + redaction preview) SHOULD take under 50 ms on the NFR-1 reference profile (open question below) for default buffer sizes. The prototype shows a capture time, but it is an indicator, not the NFR-1 benchmark.
 - **NFR-2 Host app impact.** The SDK SHOULD add under 50 KB gzipped to the host bundle and under 1 ms per captured event on the main thread.
 - **NFR-3 Bounded memory.** Buffer memory MUST stay under a fixed cap (target 2 MB) regardless of session length.
 - **NFR-4 First update latency.** The reporter SHOULD see the first triage-based status ("Looking into it" or a question) within 2 minutes of sending (p90), when automatic triage is on.
@@ -342,6 +350,8 @@ Each requirement is written to be testable. "MUST" is required for Rev 1; "SHOUL
 - **NFR-13 Ordering.** Report and hop IDs are UUIDv7 so reports and trails sort by time without a central clock.
 - **NFR-14 Internationalisation.** Reporter-facing strings externalised; Rev 1 ships English only.
 
+**Open question:** NFR-1 says "under 50 ms" but names no machine; "mid-range laptop" and "throttled CPU profile" are not reproducible. What is the NFR-1 reference profile? **Recommendation:** Chrome stable in headless mode with DevTools CPU throttling at 4× slowdown, on the CI runner, running the A&D §14.5 fixture: the default buffer filled to its count limits (15 steps, 10 calls with trails, 30 log lines, 20 conversation messages), with entry sizes taken from the prototype's export-timeout scenario. Pass = p95 of 50 runs under 50 ms. The A&D §14.5 uses the same wording.
+
 **Open question:** The seed's design principles call for whimsical branding ("we have the kittens, we have the voice") alongside plain language. This PVR has plain-language requirements (NFR-8) but no voice/branding requirement, and the reporter UI sits inside someone else's app. **Recommendation:** whimsy lives in the product name, the **!** control and The Agency's own surfaces (console, docs); reporter-facing text in host apps follows the host's voice and NFR-8, with host-overridable copy.
 
 ## 9. Constraints
@@ -350,9 +360,9 @@ Each requirement is written to be testable. "MUST" is required for Rev 1; "SHOUL
 - **License (D3):** Reference Source on both workstreams, separate LICENSE files.
 - **Repo shape (D1):** one repo, two workstreams (`this-happened`, `breadcrumb`); no third workstream without principal sign-off.
 - **Process (D2):** PVR → A&D → Plan → iteration; MAR at each transition.
-- **Triage model (D6):** Claude.
+- **Triage model (D6, prototype direction pending ratification):** Claude.
 - **Framework conventions:** commits via framework skills; Python tooling 3.13+ stdlib-only where framework tools are involved; Node 18+.
-- **Prototype as input:** the opus-5-5-build-day prototype is a single-file HTML demo with a simulated backend and a fictional host app (Tallyho). Its behaviour is a requirements input, not an architecture.
+- **Prototype as input:** the prototype (`agency/workstreams/this-happened/prototypes/this-happened.html`, copied from opus-5-5-build-day on 2026-10-13) is a single-file HTML demo with a simulated backend and a fictional host app (Tallyho). Its behaviour is a requirements input, not an architecture.
 
 **Open question:** Hosting/deployment target (handoff suggested Vercel for Next.js; backend unspecified). **Recommendation:** leave to A&D; not a PVR constraint.
 
@@ -369,16 +379,20 @@ Targets are proposals; each is an open question until the principal confirms.
 | ID | Metric | Proposed Rev 1 target |
 |---|---|---|
 | SM-1 | Time from **!** tap to Send (median) | < 30 s |
-| SM-2 | Share of drawers opened that end in Send | > 60% (lower suggests consent friction or distrust) |
-| SM-3 | Time from Send to first reporter-visible triage update (p90) | < 2 min |
+| SM-2 | Share of drawers opened that end in Send | > 60% (lower suggests consent friction or distrust). **Blocked:** measurable only if A&D OQ-A11 allows a count-only "drawer opened/cancelled" signal before Send. |
+| SM-3 | First-update latency | Not a separate target: tracks NFR-4 (p90 < 2 min from Send to the first reporter-visible triage update) as a product metric. |
 | SM-4 | Reports triaged with no question to the reporter | ≥ 70% |
 | SM-5 | Agent first-read cause later confirmed correct by the reviewing person | ≥ 70% |
 | SM-6 | Reports with a reproduction recorded (reproduced or explained not) | ≥ 80% |
 | SM-7 | Draft PRs accepted (merged, possibly with edits) | ≥ 50% |
 | SM-8 | Fixes confirmed by the reporter ("Yes, it works") among those who answer | ≥ 80%; reopen rate < 15% |
 | SM-9 | Privacy leaks: credentials or unredacted PII found in stored bundles (by scan/audit) | 0 |
-| SM-10 | How Do I (mock): reviewers can explain Show me vs Do it for me after one walkthrough | qualitative, principal sign-off |
-| SM-11 | "Cannot reproduce" closures, compared with the host app's prior baseline | down by half (needs a baseline; a greenfield dogfood app has none — measure against the first 4 weeks, or drop for Rev 1) |
+| SM-10 | How Do I (mock): reviewers can explain Show me vs Do it for me after one walkthrough | Pass rule in the protocol below; principal signs off on the result |
+| SM-11 | "Cannot reproduce" closures, compared with a baseline | down by half; baseline is an open question (below) |
+
+**SM-10 walkthrough protocol.** Five reviewers who have not seen How Do I (at least three if five are not available) each watch one scripted walkthrough of the demo app: the question "how do I mark an invoice paid?", one Show me run and one Do it for me run with its confirm and Undo, about 5 minutes. Straight after, each is asked, unprompted, "What is the difference between Show me and Do it for me?" A reviewer passes if they say that Show me points out the steps for them to do, and Do it for me does the steps for them after asking to confirm. SM-10 passes if at least 4 of 5 reviewers pass (or all of them, when fewer than five). The answers are recorded, and the principal signs off on the result.
+
+**Open question:** SM-11 needs a "cannot reproduce" baseline, and a greenfield dogfood app has no prior one. Use a fixed baseline of the first 4 weeks after dogfood launch (compared with weeks 5–12), or drop SM-11 for Rev 1? **Recommendation:** the fixed 4-week baseline. It needs the `cannot_reproduce` close reason from open question 28.
 
 **Open question:** Confirm or replace the targets above. The handoff suggested "user taps → 30 s later support sees a structured report with trace, state, logs, screen capture" and "agent produces a diagnosis without asking the user for clarification"; SM-1/SM-3/SM-4 are this PVR's restatement of those. **Recommendation:** adopt as written for Rev 1 and recalibrate after dogfooding.
 
@@ -425,7 +439,7 @@ Each has a recommended answer in context above.
 20. Hosted vs self-hosted offering? (§9) — *Rec: self-hostable reference first.*
 21. Rev 1 timeline? (§9) — *Rec: set after Plan.*
 22. Confirm success-metric targets SM-1–SM-11? (§10) — *Rec: adopt, recalibrate after dogfood.*
-23. File naming: this PVR is at `this-happened-pvr-20261013.md`; the `/define` convention is `pvr-{workstream}-{slug}-{YYYYMMDD}.md`. Rename to `pvr-this-happened-rev1-20261013.md`? — *Rec: rename when the PVR locks.*
+23. ~~File naming~~ — *Resolved 2026-10-13:* renamed from `this-happened-pvr-20261013.md` to `pvr-this-happened-rev1-20261013.md` (the `/define` convention) on the quality gate's finding, so `/define`, `/design` and `/pre-phase-review` can find it. Number kept so later numbers stay stable.
 
 Added by completeness review (2026-10-13):
 
@@ -441,6 +455,11 @@ Added by completeness review (2026-10-13):
 33. Whimsical branding vs host app voice? (§8) — *Rec: whimsy on Agency surfaces; host voice in host apps.*
 34. Distribution model (npm, framework bundling) under Reference Source? (§9) — *Rec: npm under Reference Source; not in framework yet.*
 
+Added by the quality gate (2026-10-13):
+
+35. SM-11 baseline: fixed first-4-weeks baseline, or drop SM-11 for Rev 1? (§10) — *Rec: fixed 4-week baseline.*
+36. NFR-1 reference profile? (§8) — *Rec: headless Chrome, 4× CPU throttle, CI runner, A&D §14.5 fixture at default count limits; p95 of 50 runs < 50 ms.*
+
 ## 13. Completeness scorecard (per `/define` checklist)
 
 ```
@@ -450,11 +469,11 @@ PVR Completeness (Rev 1 draft):
 2. Target Users            ✓ Complete (2 open questions on roles/first adopter)
 3. Use Cases               ✓ Complete (J1–J6)
 4. Functional Requirements ✓ Complete (FR-CAP … FR-INT); How Do I at mock fidelity per D7
-5. Non-Functional Reqs     ~ Partial (targets proposed, not confirmed)
-6. Constraints             ~ Partial (hosting model and timeline open)
-7. Success Criteria        ~ Partial (targets proposed, not confirmed)
+5. Non-Functional Reqs     ~ Partial (targets proposed, not confirmed; NFR-1 reference profile open, #36)
+6. Constraints             ~ Partial (hosting model and timeline open; D6/D7 pending ratification)
+7. Success Criteria        ~ Partial (targets proposed, not confirmed; SM-2 blocked on A&D OQ-A11; SM-11 baseline open, #35; SM-10 protocol defined)
 8. Non-Goals               ✓ Complete (mobile and retrofit pending confirmation)
-9. Open Questions          34 remaining (11 added by completeness review)
+9. Open Questions          35 remaining (11 added by completeness review, 2 by the quality gate; #23 resolved)
 
 Score: 6/9 complete, 3 partial — ready for principal comment and MAR.
 ```

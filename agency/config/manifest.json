@@ -1,11 +1,10 @@
 {
   "schema_version": "1.0",
-  "agency_version": "46.24",
-  "updated_at": "2026-10-13T08:30:00Z",
+  "agency_version": "46.25",
   "project": {
     "name": "this-happened",
-    "version": "0.1.0",
-    "created_at": "2026-05-09T04:41:00Z"
-  },
-  "notes": "agency_version is the framework release this repo was installed from (agency init did not write a manifest; see the-agency#495). project.version is this project's own release number."
+    "created_at": "2026-05-09T04:41:00Z",
+    "framework_version": "46.24",
+    "updated_at": "2026-10-13T09:00:00Z"
+  }
 }
