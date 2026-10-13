@@ -1,0 +1,12 @@
+{
+  "name": "this-happened-prototype-tests",
+  "private": true,
+  "type": "module",
+  "description": "jsdom tests for prototypes/this-happened.html",
+  "scripts": {
+    "test": "node run-all.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "29.1.1"
+  }
+}
