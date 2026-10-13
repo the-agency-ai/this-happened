@@ -32,6 +32,7 @@
   --term-bg:#0A0F13; color-scheme:dark;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);padding-inline:16px;padding-block:12px 16px}
 .wrap{max-width:1240px;margin:0 auto;display:grid;gap:18px}
 h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
@@ -395,8 +396,8 @@ textarea{width:100%;min-height:76px;resize:vertical;border:1px solid var(--line)
   <!-- ===================== Report it ===================== -->
   <section id="view-app" role="tabpanel" aria-labelledby="tab-app" class="wrap" style="gap:8px">
     <ol class="steps">
-      <li><span class="mk">1</span><span>In the assistant on the right, ask it to <b>export March invoices</b></span></li>
-      <li><span class="mk">2</span><span>Tell it <b>"It never arrived"</b>, or tap <b>!</b> at the top right</span></li>
+      <li><span class="mk">1</span><span>Tap <b>?</b> at the top right and ask the assistant to <b>export March invoices</b></span></li>
+      <li><span class="mk">2</span><span>Tell it <b>"It never arrived"</b>, or tap <b>!</b> to report it</span></li>
       <li><span class="mk">3</span><span>Check what gets sent, then follow it in <b>My reports</b> and <b>Agent queue</b></span></li>
     </ol>
     <div class="frame" id="frame">
@@ -2169,7 +2170,8 @@ window.addEventListener('resize', fitFrame);
 
 // ================= Boot =================
 renderApp();
-setAsst(true);
+// Nothing opens on its own: the assistant (with How do I) opens on ?, the report drawer on !.
+setAsst(false);
 // The greeting is rendered directly so it isn't recorded as part of the user's conversation.
 addHTML(`<div class="m a">Hi Maya. I can find invoices, export them, or show you how things work. If something goes wrong, just tell me and I'll report it for you.</div>`);
 addHTML(chipsHTML(['Export March invoices and email them to my accountant', 'How do I mark an invoice paid?', 'Something went wrong']));
