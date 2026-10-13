@@ -1421,7 +1421,16 @@ function diagnose(b) {
 const STATUS = ['Received', 'Looking into it', 'Fix on the way', 'Fixed'];
 const reports = [];
 let nextKey = 7, selMine = null, selQueue = null, running = false, bundleOpen = false;
+// The reporter's own words are the report's headline. The automatic read stays in the diagnosis.
+function ownTitle(note) {
+  const n = String(note || '').trim().replace(/\s+/g, ' '); if (!n) return null;
+  const first = n.split(/(?<=[.!?])\s/)[0];
+  if (first.length <= 90) return first.replace(/[.]$/, '');
+  const k = first.lastIndexOf(' ', 89); return first.slice(0, k > 30 ? k : 89) + '…';
+}
 function addReport({bundle, removed, diag, origin, t, key, captureMs}) {
+  const own = ownTitle(bundle.note);
+  if (own) diag = {...diag, title:own};
   const rep = {key:key || 'TH-' + String(nextKey++).padStart(4, '0'), bundle, removed, diag, origin, t, captureMs,
     status:0, updates:[{t, s:0, text:"We got your report and everything we need with it. You don't need to send anything else."}],
     unseen:false, confirmed:null, term:[], linked:[], triage:null, prompt:null, question:null};
@@ -1991,7 +2000,7 @@ function renderQueue() {
       </div>
     </div>
     <div class="sawdid">
-      <div class="saw"><p class="label">What the user saw</p><blockquote>${d.saw ? `“${esc(d.saw)}”` : 'No message on screen.'}</blockquote></div>
+      <div class="saw">${b.note ? `<p class="label">What the user wrote</p><blockquote>“${esc(b.note)}”</blockquote>` : ''}<p class="label">What the user saw</p>${b.note ? `<p>${d.saw ? `“${esc(d.saw)}”` : 'No message on screen.'}</p>` : `<blockquote>${d.saw ? `“${esc(d.saw)}”` : 'No message on screen.'}</blockquote>`}</div>
       <div class="did"><p class="label">What actually happened${tri ? ' · Claude' : ''}</p><p id="did-text"></p></div>
     </div>
   </div>
