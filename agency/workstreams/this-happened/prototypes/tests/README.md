@@ -15,6 +15,7 @@ Each suite also fails on any script error, `console.error`, or unhandled rejecti
 | `test-howdoi.mjs` | How do I: Show me tours, Do it for me runs, confirms, Undo, Stop, hand-off to `!`, free-text questions offline and with a stubbed Claude |
 | `test-integration.mjs` | Flows across lanes: `!` report, question and answer, How do I hand-off to a report, live triage, merge |
 | `test-triage.mjs` | Agent queue: scripted run, live triage with a stubbed `window.claude` sample capability, question loop, errors, Stop, quiet fallback |
+| `test-person.mjs` | A person decides on a report linked to a Fixed one: confirm Fixed (this report only) or Not the same (unlinked both ways, never relinked by the scripted or live lane); the reporter rejecting a confirmed fix; release when the Fixed report reopens; the status line counts only reporters actually updated |
 | `test-qg.mjs` | One check per 2026-10-13 quality-gate finding (P1-P24), plus coverage: consent and redaction, error codes in both lanes, late replies after Stop, duplicate edge cases, confirm and reopen, empty answers, long and empty notes |
 
 The live lanes are tested with a stub of `window.claude.use('sample')`, so no network or model is needed.
