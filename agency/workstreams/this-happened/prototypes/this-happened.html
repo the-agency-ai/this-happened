@@ -32,7 +32,7 @@
   --term-bg:#0A0F13; color-scheme:dark;
 }
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);padding-inline:16px;padding-block:20px 48px}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);padding-inline:16px;padding-block:12px 16px}
 .wrap{max-width:1240px;margin:0 auto;display:grid;gap:18px}
 h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
 p{margin:0}
@@ -44,17 +44,18 @@ button{cursor:pointer}
 .muted{color:var(--muted)}
 
 /* header */
-.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px}
-.brand h1{font-size:clamp(2rem,5vw,3rem);font-weight:800;font-stretch:118%;letter-spacing:-.01em}
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px}
+.brand{display:flex;align-items:baseline;gap:6px 16px;min-width:0;flex:1 1 420px;flex-wrap:wrap}
+.brand h1{font-size:clamp(1.6rem,3vw,2.1rem);white-space:nowrap;font-weight:800;font-stretch:118%;letter-spacing:-.01em}
 .brand h1 .bang{background:var(--marker);color:var(--marker-ink);padding:0 .14em;margin-left:.04em;display:inline-block;transform:rotate(-3deg)}
-.brand p{color:var(--muted);margin-top:6px;max-width:64ch}
+.brand p{color:var(--muted);font-size:14px;line-height:1.35;max-width:64ch;flex:1 1 280px}
 .tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px;flex-wrap:wrap}
 .tab{border:0;background:transparent;padding:8px 15px;border-radius:999px;font-weight:600;display:flex;gap:8px;align-items:center;white-space:nowrap}
 .tab[aria-selected="true"]{background:var(--ink);color:var(--bg)}
 .tab .pill{font-size:11px;font-weight:700;background:var(--marker);color:var(--marker-ink);min-width:20px;padding:1px 6px;border-radius:999px;text-align:center}
 
 /* sequence hint */
-.steps{display:flex;flex-wrap:wrap;gap:8px 20px;color:var(--muted);font-size:14px;list-style:none;padding:0;margin:0}
+.steps{display:flex;flex-wrap:wrap;gap:4px 20px;color:var(--muted);font-size:13.5px;list-style:none;padding:0;margin:0}
 .steps li{display:flex;gap:8px;align-items:center}
 .steps b{color:var(--ink);font-weight:600}
 
@@ -62,7 +63,7 @@ button{cursor:pointer}
 .mk{display:inline-grid;place-items:center;min-width:24px;height:22px;padding:0 5px;background:var(--marker);color:var(--marker-ink);font:700 12px/1 var(--f-display);font-stretch:110%;clip-path:polygon(16% 0,84% 0,100% 100%,0 100%);flex:none}
 
 /* browser frame */
-.frame{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;height:680px;display:flex;flex-direction:column;container-type:inline-size}
+.frame{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;height:min(680px,calc(100dvh - 130px));min-height:460px;display:flex;flex-direction:column;container-type:inline-size}
 .chrome{display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid var(--line);background:var(--sunk)}
 .dots{display:flex;gap:6px}.dots i{width:10px;height:10px;border-radius:50%;background:var(--line);display:block}
 .url{font:13px var(--f-mono);color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px 12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
@@ -103,7 +104,7 @@ tr:last-child td{border-bottom:0}
 td.num{font-variant-numeric:tabular-nums;text-align:right}th.num{text-align:right}
 .st{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px}
 .st.Paid{background:var(--ok-soft);color:var(--ok)}.st.Due{background:var(--app-soft);color:var(--app)}.st.Overdue{background:var(--danger-soft);color:var(--danger)}
-.app-toast{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:9px;font-size:14px;max-width:calc(100% - 40px);box-shadow:0 6px 24px rgba(0,0,0,.18);z-index:8}
+.app-toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:9px;font-size:14px;max-width:calc(100% - 40px);box-shadow:0 6px 24px rgba(0,0,0,.18);z-index:13}
 .app-toast.err{background:var(--danger);color:#fff}
 .pulse{animation:pulse 1.1s ease-out 2;border-radius:8px}
 @keyframes pulse{0%{box-shadow:0 0 0 0 var(--marker)}100%{box-shadow:0 0 0 10px transparent}}
@@ -142,7 +143,12 @@ td.num{font-variant-numeric:tabular-nums;text-align:right}th.num{text-align:righ
 
 /* report drawer */
 .drawer{position:absolute;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--surface);border-left:1px solid var(--line);box-shadow:-12px 0 40px rgba(0,0,0,.18);display:flex;flex-direction:column;z-index:12}
-.dr-head{padding:16px 20px 12px;border-bottom:1px solid var(--line);display:grid;gap:6px}
+.dr-head{position:relative;padding:16px 52px 12px 20px;border-bottom:1px solid var(--line);display:grid;gap:6px}
+/* one close control for This Happened! and How do I: same glyph, size and colour as the assistant's */
+.dr-head .x,.hdi-h .x{border:0;background:transparent;font-size:20px;line-height:1;color:var(--muted);padding:2px 6px;border-radius:6px}
+.dr-head .x:hover,.hdi-h .x:hover{color:var(--ink);background:var(--sunk)}
+.dr-head .x{position:absolute;top:14px;right:14px}
+.hdi-h .x{margin-left:auto}
 .dr-head h3{font-size:24px;font-weight:800;font-stretch:115%;display:flex;gap:10px;align-items:center}
 .dr-head p{color:var(--muted);font-size:14px}
 .dr-body{padding:14px 20px;overflow-y:auto;display:grid;gap:12px;align-content:start;flex:1}
@@ -161,6 +167,7 @@ textarea{width:100%;min-height:76px;resize:vertical;border:1px solid var(--line)
 .redact b{color:var(--ink)}
 .dr-foot{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
 .btn-send{background:var(--marker);color:var(--marker-ink);border:0;border-radius:9px;padding:10px 18px;font-weight:700}
+.drawer[hidden],.app-toast[hidden]{display:none}
 .btn-cancel{background:transparent;border:1px solid var(--line);border-radius:9px;padding:10px 16px}
 
 .app{position:relative}
@@ -370,7 +377,6 @@ textarea{width:100%;min-height:76px;resize:vertical;border:1px solid var(--line)
   .wf-axis .spc{display:none}
   .wf-ticks{grid-column:1 / -1}
   .tab{padding:7px 11px}
-  .frame{height:640px}
   .stepper li{font-size:11.5px}
 }
 </style>
@@ -389,7 +395,7 @@ textarea{width:100%;min-height:76px;resize:vertical;border:1px solid var(--line)
   </header>
 
   <!-- ===================== Report it ===================== -->
-  <section id="view-app" role="tabpanel" aria-labelledby="tab-app" class="wrap" style="gap:12px">
+  <section id="view-app" role="tabpanel" aria-labelledby="tab-app" class="wrap" style="gap:8px">
     <ol class="steps">
       <li><span class="mk">1</span><span>In the assistant on the right, ask it to <b>export March invoices</b></span></li>
       <li><span class="mk">2</span><span>Tell it <b>"It never arrived"</b>, or tap <b>!</b> at the top right</span></li>
@@ -409,6 +415,7 @@ textarea{width:100%;min-height:76px;resize:vertical;border:1px solid var(--line)
         </div>
       </div>
       <div class="app" id="app">
+        <div class="app-toast" id="apptoast" role="status" hidden></div>
         <nav class="app-nav" aria-label="Tallyho">
           <a href="#" data-nav="Dashboard">Dashboard</a>
           <a href="#" class="on" data-nav="Invoices">Invoices</a>
@@ -460,10 +467,10 @@ textarea{width:100%;min-height:76px;resize:vertical;border:1px solid var(--line)
           </form>
         </aside>
       </div>
-      <div class="app-toast" id="apptoast" role="status" hidden></div>
       <aside class="drawer" id="drawer" hidden aria-label="Report what happened">
         <div class="dr-head">
           <h3><span class="mk" style="height:26px;min-width:28px;font-size:15px">!</span>This happened.</h3>
+          <button class="x" id="dr-x" aria-label="Close report without sending">×</button>
           <p id="dr-sub"></p>
         </div>
         <div class="dr-body">
@@ -757,6 +764,8 @@ $('#ctl-q').addEventListener('click', () => {
   setAsst(true);
   $('#asst-mode').textContent = '· How do I…?';
   act(live, Date.now(), 'click', 'How do I? (?)');
+  // Already open: bring the card back into view instead of asking again.
+  if (HDI.card?.isConnected) { HDI.card.scrollIntoView?.({block:'nearest'}); return HDI.card.querySelector('.hdi-in').focus(); }
   msgs.querySelectorAll('.chips').forEach(c => c.remove());
   assistantSays('What do you want to do? Ask in your own words, or pick one. I can show you where it is, or do it for you.', {delay:250})
     .then(() => hdiOpen().querySelector('.hdi-in').focus());
@@ -958,7 +967,7 @@ function hdiOpen({task = null, q = ''} = {}) {
   msgs.querySelectorAll('.hdi').forEach(c => c.remove());
   Object.assign(HDI, {q, task:null, last:null, undo:[]});
   HDI.card = addHTML(`<div class="hdi" role="group" aria-label="How do I">
-    <div class="hdi-h"><b>How do I…?</b><span class="chip hdi-live" hidden title="Your question is answered by Claude">Claude</span></div>
+    <div class="hdi-h"><b>How do I…?</b><span class="chip hdi-live" hidden title="Your question is answered by Claude">Claude</span><button class="x" data-hdi="close" aria-label="Close How do I">×</button></div>
     <form class="hdi-q"><label for="hdi-in" class="sr">Ask how to do something in Tallyho</label>
       <input id="hdi-in" class="hdi-in" autocomplete="off" placeholder="For example: charge a late fee">
       <button type="submit" class="btn-b">Ask</button><button type="button" class="btn-o" data-hdi="stop-ask" hidden>Stop</button></form>
@@ -1256,6 +1265,13 @@ function hdiReport(why) {
   openDrawer({origin:'button', note:parts.join(' ')});
 }
 
+function hdiClose() {
+  hdiReset(); hdiRestore();
+  act(live, Date.now(), 'click', 'How do I: close');
+  HDI.card?.remove(); HDI.card = null; HDI.task = null;
+  $('#asst-mode').textContent = '';
+  $('#chatin').focus({preventScroll:true});
+}
 function hdiAct(a, btn) {
   if (a === 'task') return hdiPick(btn.dataset.id);
   if (a === 'show') return hdiShow(HDI.task);
@@ -1271,6 +1287,7 @@ function hdiAct(a, btn) {
   if (a === 'stop-ask') return HDI.ctl?.abort();
   if (a === 'retry') return hdiAsk(HDI.q);
   if (a === 'scripted') { hdiQ('.hdi-err').hidden = true; hdiStatus(''); return hdiScripted(HDI.q); }
+  if (a === 'close') return hdiClose();
   if (a === 'helpful') {
     act(live, Date.now(), 'click', 'How do I: helpful', HDI.last?.title || '');
     hdiQ('.hdi-foot').textContent = 'Thanks for telling us.';
@@ -1474,7 +1491,10 @@ function updateRedact() {
 }
 $('#note').addEventListener('input', () => pending && updateRedact());
 $('#ctl-bang').addEventListener('click', () => openDrawer({origin:'button'}));
-$('#cancel').addEventListener('click', () => { $('#drawer').hidden = true; pending = null; });
+function closeDrawer() { $('#drawer').hidden = true; pending = null; }
+$('#cancel').addEventListener('click', closeDrawer);
+$('#dr-x').addEventListener('click', closeDrawer);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#drawer').hidden && !HDI.tour && !HDI.run) { e.preventDefault(); closeDrawer(); } });
 $('#send').addEventListener('click', () => {
   const {data, removed} = buildBundle(pending.cap, $('#note').value.trim(), currentInclude(), pending.origin);
   const rep = addReport({bundle:data, removed, diag:diagnose(data), origin:pending.origin, t:pending.cap.t, captureMs:pending.ms});
@@ -2095,7 +2115,17 @@ function selectTab(which) {
     $('#view-' + k).hidden = k !== which;
   });
   renderAll();
+  fitFrame();
 }
+// Size the app frame to the window, so the whole app (and its messages) is on screen without scrolling.
+function fitFrame() {
+  const f = $('#frame');
+  if (!f || $('#view-app').hidden) return;
+  const top = f.getBoundingClientRect().top + scrollY;
+  f.style.height = Math.max(460, Math.round(innerHeight - top - 14)) + 'px';
+  if (typeof hdiPlace === 'function') hdiPlace();
+}
+window.addEventListener('resize', fitFrame);
 ['app', 'mine', 'queue'].forEach(k => $('#tab-' + k).addEventListener('click', () => selectTab(k)));
 
 // ================= Seed data: earlier reports from Maya, built with the same pipeline =================
@@ -2155,4 +2185,5 @@ setAsst(true);
 addHTML(`<div class="m a">Hi Maya. I can find invoices, export them, or show you how things work. If something goes wrong, just tell me and I'll report it for you.</div>`);
 addHTML(chipsHTML(['Export March invoices and email them to my accountant', 'How do I mark an invoice paid?', 'Something went wrong']));
 renderAll();
+fitFrame();
 </script>
