@@ -194,6 +194,7 @@ textarea{width:100%;min-height:76px;resize:vertical;border:1px solid var(--line)
   .asst{position:absolute;top:0;right:0;bottom:0;width:100%;z-index:10}
 }
 .ask{border:1px solid var(--line);border-left:3px solid var(--app);border-radius:10px;padding:12px 14px;display:grid;gap:8px}
+.ask .row{display:flex;gap:8px;flex-wrap:wrap}
 .ask b{font-weight:600}
 
 /* invoice detail (opened from the invoice number) */
@@ -1589,7 +1590,8 @@ function addReport({bundle, removed = [], masked = [], diag, origin, t, key, cap
     status:0, updates:[{t, s:0, text:"We got your report and everything we need with it. You don't need to send anything else."}],
     unseen:false, confirmed:null, term:[], linked:[],
     triage:null, triageErr:null, prompt:null, candidates:null, question:null,  // live triage
-    awaiting:false, answer:null, handed:false, follows:null,                  // the agent's question, a hand-off to a person, a linked report it follows
+    awaiting:false, answer:null, handed:false, handReason:null, follows:null,  // the agent's question, a hand-off to a person (and why), a linked report it follows
+    notSame:[], confirmedWith:[],                                              // a person said: not the same problem (never relinked) / fixed along with these
     thinking:false, stream:'', abort:null, pr:null,                            // a live run in progress, and its draft PR
     chat:false, toldFixed:false};                                              // filed from the conversation; the assistant has said it's fixed
   reports.unshift(rep);
@@ -1759,8 +1761,13 @@ $('#rdetail').addEventListener('click', e => {
   const c = e.target.closest('[data-confirm]')?.dataset.confirm; if (!c) return;
   if (c === 'yes') { r.confirmed = true; r.updates.push({t:Date.now(), s:3, text:'You confirmed the fix works. Report closed.'}); }
   else {
-    r.confirmed = null; r.handed = false; r.follows = null;
+    r.confirmed = null; r.handed = false; r.handReason = null; r.follows = null;
     setStatus(r, 1, "Thanks for telling us. We've reopened it and an agent is taking another look."); r.term = []; r.unseen = false;
+    // A person had confirmed it fixed along with another report; the reporter says no, so those aren't the same problem.
+    r.confirmedWith.forEach(k => { const o = reports.find(x => x.key === k); if (o) markNotSame(r, o); });
+    if (r.confirmedWith.length) r.term.push(['warn', `The reporter says it isn't fixed, so it isn't the same problem as ${r.confirmedWith.join(', ')}. Unlinked; the agent won't link them again.`]);
+    r.confirmedWith = [];
+    releaseHandoffs();
   }
   renderAll();
 });
@@ -1795,7 +1802,7 @@ function agentScript(rep) {
   // and never borrow another report's diagnosis: without a match, a person takes it from here.
   if (!d.bad && rep.answer) {
     L.push(['dim', `  user answered: "${rep.answer}"`]);
-    const same = d.sig ? reports.filter(r => r !== rep && r.diag.sig === d.sig) : [];
+    const same = d.sig ? reports.filter(r => r !== rep && r.diag.sig === d.sig && !rep.notSame.includes(r.key)) : [];
     if (!same.length) {
       L.push(['warn', `${d.sig ? "Nothing else ends the way this trail does" : 'There is no failing trail to match'}, so there's no known problem to link. Handing this to a person on the Tallyho team.`]);
       L.push(['hand']);
@@ -1817,7 +1824,7 @@ function agentScript(rep) {
       L.push(['warn', 'assistant-svc replied "sent" after pdf.export returned an error']);
       L.push(['code', `${CODE['assistant-svc'].path}   ${CODE['assistant-svc'].line}`]);
     }
-    const same = reports.filter(r => r !== rep && r.diag.sig && r.diag.sig === d.sig);
+    const same = reports.filter(r => r !== rep && r.diag.sig && r.diag.sig === d.sig && !rep.notSame.includes(r.key));
     if (same.length) {
       const k = linkLines(rep, same, 'Same trail end as');
       L.push(...k.L);
@@ -1848,18 +1855,22 @@ function linkLines(rep, others, lead) {
   if (!fixed.length) return {L, stop:false};
   L.push(['warn', `${fixed.map(o => o.key).join(', ')} ${fixed.length === 1 ? 'is' : 'are'} marked Fixed, so this may already be fixed. A person should confirm before anyone tells the reporter it's fixed.`]);
   L.push(['status', 1]);
-  L.push(['hand']);
+  L.push(['hand', 'maybe-fixed']);
   return {L, stop:true};
 }
 // Moves a report, and the reports linked to it, forward. Linked reporters get neutral text about their own report.
 function applyStatus(rep, s) {
   const group = [rep, ...reports.filter(r => r !== rep && rep.linked.includes(r.key))];
+  let sent = 0;
   group.forEach(r => {
     if (!(r.status < s || (r === rep && r.status !== s))) return;
     if (r !== rep) r.awaiting = false;  // it moved on with the report it's linked to, so its question is moot
     setStatus(r, s, r === rep ? userText(r, s) : linkedText(s));
+    sent++;
   });
-  return `Status → "${STATUS[s]}" · update sent to ${group.length === 1 ? 'the reporter' : group.length + ' reporters'}`;
+  // Count only the reporters who were actually sent an update (a linked report already further along is skipped).
+  if (!sent) return `Status stays "${STATUS[s]}" · no new update for the reporter`;
+  return `Status → "${STATUS[s]}" · update sent to ${sent === 1 ? 'the reporter' : sent + ' reporters'}`;
 }
 function runAgent() {
   const rep = reports.find(r => r.key === selQueue);
@@ -1880,7 +1891,7 @@ function playLines(rep, lines) {
     const [k, v] = lines[i++];
     if (k === 'status') rep.term.push(['stat', applyStatus(rep, v)]);
     else if (k === 'ask') { rep.awaiting = true; rep.term.push(['stat', applyStatus(rep, v)]); }
-    else if (k === 'hand') { rep.handed = true; rep.term.push(['stat', 'Handed to a person on the Tallyho team']); }
+    else if (k === 'hand') { rep.handed = true; rep.handReason = v || 'no-match'; rep.term.push(['stat', 'Handed to a person on the Tallyho team']); }
     else if (k === 'follow') rep.follows = v;
     else rep.term.push([k, v]);
     renderAll();
@@ -1892,6 +1903,42 @@ function mergeFix() {
   if (!rep || rep.status !== 2) return;
   rep.term.push(['ok', `PR #812${rep.pr ? ` "${rep.pr.title}"` : ''} approved and merged by a person · deployed to production`]);
   rep.term.push(['stat', applyStatus(rep, 3)]);
+  renderAll();
+}
+// A report handed off because a linked report is already Fixed waits here: only a person decides whether it's fixed.
+const fixedLinks = rep => reports.filter(r => r !== rep && rep.linked.includes(r.key) && r.status === 3);
+// "Not the same" holds both ways: neither report is offered to, or linked with, the other again.
+function markNotSame(a, b) {
+  if (!a.notSame.includes(b.key)) a.notSame.push(b.key);
+  if (!b.notSame.includes(a.key)) b.notSame.push(a.key);
+  a.linked = a.linked.filter(k => k !== b.key); b.linked = b.linked.filter(k => k !== a.key);
+}
+// A report handed off only because a linked report was Fixed goes back to the agent once nothing linked is Fixed
+// (that report reopened), instead of waiting on a decision that no longer exists.
+function releaseHandoffs() {
+  reports.forEach(r => {
+    if (!r.handed || r.handReason !== 'maybe-fixed' || r.status >= 3 || fixedLinks(r).length) return;
+    r.handed = false; r.handReason = null;
+    r.term.push(['ok', 'The linked report reopened, so there is nothing for a person to confirm. Back to the agent.']);
+  });
+}
+// Confirming covers only this report: a person checked this one; other linked reports keep their own state.
+function personConfirmFixed() {
+  const rep = reports.find(r => r.key === selQueue), fx = rep && fixedLinks(rep);
+  if (!rep || running || !rep.handed || rep.status >= 3 || !fx.length) return;
+  const keys = fx.map(r => r.key).join(', ');
+  rep.handed = false; rep.handReason = null; rep.awaiting = false; rep.confirmedWith = fx.map(r => r.key);
+  rep.term.push(['ok', `A person on the Tallyho team checked: already fixed along with ${keys}`]);
+  setStatus(rep, 3, `Someone on the Tallyho team checked: this was fixed along with an earlier report of the same problem. Try it again, and tell us below if it works.`);
+  rep.term.push(['stat', `Status → "${STATUS[3]}" · update sent to the reporter`]);
+  renderAll();
+}
+function personNotSame() {
+  const rep = reports.find(r => r.key === selQueue), fx = rep && fixedLinks(rep);
+  if (!rep || running || !rep.handed || rep.status >= 3 || !fx.length) return;
+  fx.forEach(o => markNotSame(rep, o));
+  rep.handed = false; rep.handReason = null;
+  rep.term.push(['ok', `A person on the Tallyho team checked: not the same problem as ${fx.map(r => r.key).join(', ')}. Unlinked and back to the agent.`]);
   renderAll();
 }
 
@@ -1944,7 +1991,7 @@ const UNTRUSTED = 'untrusted_report_data';
 const fence = s => s.replace(new RegExp(`</?${UNTRUSTED}>`, 'g'), '[tag removed]');  // the data can't close the block early
 function buildPrompt(rep) {
   // Duplicate candidates are open reports only: a Fixed report is never offered, so Claude can't mark this one Fixed through it.
-  const open = reports.filter(r => r !== rep && r.status < 3);
+  const open = reports.filter(r => r !== rep && r.status < 3 && !rep.notSame.includes(r.key));
   rep.candidates = open.map(r => r.key);
   const others = open.map(r => ({report_id:r.key, status:STATUS[r.status], title:r.diag.title,
     note:r.bundle.note, summary:r.triage?.summary || r.diag.summary, trail_ends_at:r.diag.root}));
@@ -2212,6 +2259,7 @@ function renderQueue() {
     : running ? 'The agent is working…'
     : rep.triageErr ? "Live triage didn't finish. Try again, or use the scripted result."
     : rep.awaiting ? 'Waiting for the reporter to answer in My reports.'
+    : rep.handed && fixedLinks(rep).length ? `May already be fixed along with ${fixedLinks(rep).map(r => r.key).join(', ')}. A person decides below.`
     : rep.handed ? 'Handed to a person on the Tallyho team.'
     : rep.follows ? `Linked to ${rep.follows}. It moves with that report.`
     : rep.status === 2 ? 'The draft PR needs a person to approve it.'
@@ -2268,6 +2316,11 @@ function renderQueue() {
           ${Sample.state === 'ready' ? `<label class="sim" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="live-on" ${liveOn ? 'checked' : ''} ${running ? 'disabled' : ''}>Live Claude triage</label>` : ''}
           <span class="sim">${esc(why)}</span>
         </div>
+        ${rep.handed && rep.status < 3 && !running && fixedLinks(rep).length ? `<div class="ask" id="person-box">
+          <b>A person on the Tallyho team decides</b>
+          <p>The agent linked this to ${fixedLinks(rep).map(r => esc(r.key)).join(', ')}, which is already Fixed. Is this the same problem? Confirming covers only this report.</p>
+          <div class="row"><button class="btn-b" id="person-fixed">Same problem: confirm it's fixed</button><button class="btn-o" id="person-not">Not the same: back to the agent</button></div>
+        </div>` : ''}
       </div>
       ${wcall && ev.network ? `<div class="panel">
         <div class="sec-h"><span class="mk">3</span><h3>Breadcrumb trail</h3><span class="sub mono">${esc(wcall.method)} ${esc(wcall.url)} → ${wcall.status}</span></div>
@@ -2335,6 +2388,8 @@ function renderQueue() {
   if (afId && $('#' + afId)) { const n = $('#' + afId); n.focus({preventScroll:true}); if (afSel) n.setSelectionRange(...afSel); }
   $('#run').addEventListener('click', runAgent);
   $('#merge').addEventListener('click', mergeFix);
+  $('#person-fixed')?.addEventListener('click', personConfirmFixed);
+  $('#person-not')?.addEventListener('click', personNotSame);
   $('#bundle').addEventListener('toggle', e => { bundleOpen = e.currentTarget.open; });
   $('#copy').addEventListener('click', e => {
     e.preventDefault();

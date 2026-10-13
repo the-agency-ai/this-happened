@@ -257,7 +257,7 @@ Each requirement is written to be testable. "MUST" is required for Rev 1; "SHOUL
 - **FR-TRI-4** The agent MUST generate the reporter-facing update text separately from the technical summary, in plain language, with no internal service names or IDs. Reporter-facing text written by a model (updates and questions) MUST NOT contain links, phone numbers, email addresses, or requests for credentials, codes or payment details; text that does is replaced by a fixed template before the reporter sees it.
 - **FR-TRI-5** When evidence is insufficient, the agent MUST ask at most one question per triage pass, through the report.
 - **FR-TRI-6** If triage fails (model error, timeout, schema-invalid output), the report MUST remain in the queue with an error recorded; no fabricated diagnosis is shown.
-- **FR-TRI-7** The agent SHOULD detect likely duplicates (same failing hop/service and signature) and link them, without merging reports. Only open reports are duplicate candidates, and triage never sets a status beyond "Looking into it" (Fixed comes only from FR-FIX-4).
+- **FR-TRI-7** The agent SHOULD detect likely duplicates (same failing hop/service and signature) and link them, without merging reports. Only open reports are duplicate candidates, and triage never sets a status beyond "Looking into it" (Fixed comes only from FR-FIX-4). *Proposed (2026-10-13, from the prototype; open questions 37–39):* reports marked Fixed are also candidates, but a link to one never makes the new report Fixed: it stays at "Looking into it" and goes to a person ("may already be fixed"). The person either confirms it is the same problem (this report alone becomes Fixed, under FR-FIX-4) or says it is not the same. A "not the same" decision is permanent for that pair, in both directions, unless a person undoes it: neither the agent nor triage offers or links the pair again. The same holds when a reporter says a fix confirmed this way did not work.
 - **FR-TRI-8** The agent MUST check its own tool results before reporting success (the failure mode in J2 must not be reproduced by the fixing agent).
 
 **Open question:** Where does the agent run — the app team's own Claude Code session against their repo, or an Agency-hosted agent with repo access? **Recommendation:** Rev 1 runs in the app team's Claude Code (a skill/command plus the service API); a hosted runner is a later option.
@@ -271,11 +271,17 @@ Each requirement is written to be testable. "MUST" is required for Rev 1; "SHOUL
 - **FR-FIX-1** The agent MUST attempt a reproduction in a sandbox, not in production, and record the result (reproduced / not reproduced / not attempted, with reason).
 - **FR-FIX-2** A fix MUST be proposed as a draft PR linked to the report key and citing the Breadcrumb hop and evidence used.
 - **FR-FIX-3** The agent MUST NOT merge, deploy, or approve its own PR.
-- **FR-FIX-4** Status "Fixed" MUST be set only after a person merges and the fix is deployed.
+- **FR-FIX-4** Status "Fixed" MUST be set only after a person merges and the fix is deployed. *Proposed (2026-10-13, from the prototype):* a person on the app team who confirms that a report is a duplicate of a report whose fix is already deployed counts as "a person" here; that sets Fixed for the confirmed report only, the reporter is told a person checked, and the report records which Fixed report it was confirmed with. If that reporter says the fix did not work, the report reopens and the pair is recorded as not the same problem (FR-TRI-7). The agent and triage never set Fixed this way.
 - **FR-FIX-5** A fix SHOULD include a regression test (or, for assistant failures, an eval case) reproducing the reported failure.
 - **FR-FIX-6** The agent MUST be able to hand the report to a person, with a reason, at any step.
 
 **Open question:** How does the service learn a fix is deployed (PR merged + deploy webhook vs a person marking it)? **Recommendation:** PR merge webhook moves to "Fix merged"; a deploy signal or a person sets "Fixed". A&D to decide mechanism.
+
+**Open question:** Should reports already marked Fixed be duplicate candidates (FR-TRI-7 today says open reports only)? The prototype (2026-10-13) links them and hands the new report to a person. **Recommendation:** yes. A problem that comes back after a fix is the most useful duplicate to catch, and the person gate keeps the agent from saying "fixed" (Risks, row 1).
+
+**Open question:** When a person confirms a report is fixed along with a Fixed report, should that also move other open reports linked to the same Fixed report? **Recommendation:** no, as the prototype does: only the report the person checked. Each other report waits for its own check.
+
+**Open question:** Who can undo a "not the same" decision, and how? **Recommendation:** only a person, from the console, with an audit entry; never the agent or triage.
 
 ### 6.8 Agent permissions (FR-PERM)
 
@@ -460,6 +466,12 @@ Added by the quality gate (2026-10-13):
 35. SM-11 baseline: fixed first-4-weeks baseline, or drop SM-11 for Rev 1? (§10) — *Rec: fixed 4-week baseline.*
 36. NFR-1 reference profile? (§8) — *Rec: headless Chrome, 4× CPU throttle, CI runner, A&D §14.5 fixture at default count limits; p95 of 50 runs < 50 ms.*
 
+Added from the prototype's duplicate handling (2026-10-13):
+
+37. Reports marked Fixed as duplicate candidates, routed to a person? (FR-TRI-7) — *Rec: yes; a link never sets Fixed.*
+38. Does a person's "confirm fixed" on one duplicate also move other linked open reports? (FR-FIX-4) — *Rec: no, only the report checked.*
+39. Who can undo a "not the same" decision? (FR-TRI-7) — *Rec: a person in the console, audited; never the agent or triage.*
+
 ## 13. Completeness scorecard (per `/define` checklist)
 
 ```
@@ -473,7 +485,7 @@ PVR Completeness (Rev 1 draft):
 6. Constraints             ~ Partial (hosting model and timeline open; D6/D7 pending ratification)
 7. Success Criteria        ~ Partial (targets proposed, not confirmed; SM-2 blocked on A&D OQ-A11; SM-11 baseline open, #35; SM-10 protocol defined)
 8. Non-Goals               ✓ Complete (mobile and retrofit pending confirmation)
-9. Open Questions          35 remaining (11 added by completeness review, 2 by the quality gate; #23 resolved)
+9. Open Questions          38 remaining (11 added by completeness review, 2 by the quality gate, 3 from the prototype's duplicate handling; #23 resolved)
 
 Score: 6/9 complete, 3 partial — ready for principal comment and MAR.
 ```

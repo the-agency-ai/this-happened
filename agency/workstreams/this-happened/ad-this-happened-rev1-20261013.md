@@ -322,6 +322,19 @@ The bundle is the attacker-controlled input here (§9.6), so this lint runs what
 
 **Duplicates (FR-TRI-7).** A deterministic `signature = sha256(app_id, deepest_failing.service, deepest_failing.op, status_class, normalized_error)` is computed at intake. Open reports (not `fixed` or `closed`, not deleted) of the same app with the same signature in the last 30 days are offered to the model as candidates; the model may confirm one as `duplicate_of`. A confirmed link never copies the other report's diagnosis or status: the new report gets its own first read and stays at or below `looking_into_it`. The prototype's original candidate set (every report, any status, matched by keyword) is not the reference; open, same-signature candidates only. Confirmed duplicates are **linked**, never merged; status updates fan out to every linked reporter (as the prototype's `applyStatus` does).
 
+**Duplicates of a Fixed report, and "not the same" (proposed 2026-10-13, from the prototype's `linkLines`, `personConfirmFixed`, `personNotSame`, `markNotSame`, `releaseHandoffs`; OQ-A18–A20).**
+- *Candidates.* Same-signature reports in `fixed` (or `closed`) within the 30-day window are also offered (OQ-A18; PVR FR-TRI-7, PVR OQ-37). **Every candidate query excludes any pair that has a `not_duplicate` row in `duplicate_link`, in either direction** (§3.1); this holds for the scripted and the model-driven paths alike, and `duplicate_of` naming such a pair fails validation.
+- *A link to a Fixed report never sets Fixed.* When the confirmed `duplicate_of` (from triage or the agent) is `fixed`/`closed`, the new report stays at `looking_into_it` and C11 hands it to a person with reason `maybe_fixed` ("may already be fixed"). The reporter is not told it is fixed.
+- *The person decides* (console, §2.12). **Confirm fixed with linked report** → `handed_to_person --> fixed` for this report only (OQ-A19), reporter text "Someone on the team checked: this was fixed along with an earlier report of the same problem. Try it again, and tell us if it works.", and `report.fixed_with` records the Fixed report(s) it was confirmed against. **Not the same** → both links are removed, a `not_duplicate` row is written for the pair, and the report goes `handed_to_person --> looking_into_it` (back to the agent). A `not_duplicate` row is permanent unless a person removes it (OQ-A20).
+- *Reporter rejects the fix.* If a report confirmed this way goes `fixed --> reopened`, each pair in `fixed_with` is unlinked and recorded `not_duplicate`, and `fixed_with` is cleared; the agent will not link them again.
+- *The Fixed report reopens first.* If the linked Fixed report reopens while a `maybe_fixed` report waits on the person, and no other linked report is still Fixed, C11 moves the waiting report `handed_to_person --> looking_into_it` automatically (there is nothing left to confirm).
+
+**Open question (OQ-A18):** Widen the candidate set to `fixed`/`closed` reports (the paragraph above says open only; PVR OQ-37)? **Recommendation:** yes, within the same 30-day window, because every such match goes to a person and never sets Fixed on its own.
+
+**Open question (OQ-A19):** Should a person's "Confirm fixed with linked report" also fan out to other open reports linked to the same Fixed report? **Recommendation:** no, as the prototype does: only the report the person checked moves to `fixed` (PVR OQ-38). Fan-out of ordinary status updates (§2.9) is unchanged.
+
+**Open question (OQ-A20):** Who can remove a `not_duplicate` row? **Recommendation:** a console person only, audited; no Agent API or triage path (PVR OQ-39).
+
 **Open question (OQ-A15):** Cross-reporter leakage through fan-out. The primary report's `reporter_text` is written from the primary reporter's bundle and can carry their details ("exports over about 20 invoices", a customer name, a date). Fanning that text out to other reporters, and F13's reuse of the primary's first read for duplicates, crosses the per-reporter boundary that consent was given for. **Recommendation:** fan-out sends each linked reporter the fixed status template (or a text generated from that reporter's own bundle); the primary's model-written text is never sent to another reporter.
 
 **Question path.** If `question_for_reporter` is set, the report moves to `awaiting_reporter` and the reporter sees the question in My reports (J3.4). Their answer is redacted by C5 in the browser and again at the service before it is stored as a `message` or appended to the re-enqueued triage.
@@ -336,6 +349,7 @@ The bundle is the attacker-controlled input here (§9.6), so this lint runs what
 - **Scopes.** `reports:claim`, `bundle:read`, `trail:read`, `status:write`, `reporter:message` (report thread only), `repro:write`, `pr:link`, `handoff:write`.
 - **What doesn't exist.** There is no endpoint that returns unredacted data (none is stored, PR-5), no endpoint to message a reporter outside a report thread, no endpoint to set `fixed` (only SCM webhooks and console humans can), and no merge/deploy capability anywhere in the service (FR-PERM-3, FR-FIX-3). "Can't" is implemented as absence, which is stronger than a denied check.
 - **Claims and leases (FR-TRI-1).** `POST /v1/agent/claims/next` atomically claims the oldest claimable report (`SELECT … FOR UPDATE SKIP LOCKED`) and returns a lease (30 min, renewable by heartbeat). At most one active claim per report. Claimable states are `looking_into_it` and `triage_failed` (§3.4); for a `triage_failed` report the skill has the agent write the first read in its session first (PVR J4 step 2). `received` and `triaging` are not claimable while automatic triage is on (assumes PVR OQ-13). Expired leases return the report to the queue and are audit-logged.
+- **Duplicate links from the agent (proposed 2026-10-13; §2.6).** The agent's duplicate candidates come from the same service query as triage's, so `not_duplicate` pairs are excluded in both directions; the API refuses (409) a link to a `not_duplicate` pair. A link to a `fixed`/`closed` report makes the agent call `hand_off(reason: "maybe_fixed")` (`in_progress --> handed_to_person`) and stop; there is still no agent endpoint that sets `fixed`, confirms a duplicate as fixed, or removes a `not_duplicate` row.
 - **Audit (PR-10, FR-ADM-4).** Every Agent API call — including every bundle read — writes an audit row (`actor`, `action`, `report_id`, `hop/evidence keys read`, `request bc.id`).
 
 **Claude Code integration.** Ships as two pieces in `packages/mcp-server` (installed by the app team into their host-app repo):
@@ -375,6 +389,7 @@ Reproduction (FR-FIX-1) runs in the app team's environment because that is where
 - A GitHub App (or repo webhook with shared secret) sends `pull_request` and `deployment_status` events to `POST /v1/webhooks/github`. Signatures are verified (`X-Hub-Signature-256`).
 - `link_pr` stores `{repo, number, head_sha}` on the report. `pull_request.closed` with `merged=true` → `fix_merged` (reporter still sees "Fix on the way"; reporter text "The fix has been approved and is on its way out."). `pull_request.closed` without merge → back to `in_progress`, console notified.
 - `deployment_status: success` for an environment the team marks as production, whose deployment SHA contains the merge commit → `fixed` (FR-FIX-4). Teams without GitHub deployments press "Mark deployed" in the console; the console records who did it.
+- *Proposed (2026-10-13, §2.6):* the one other way into `fixed` is a person confirming, in the console, that a `maybe_fixed` report is the same problem as a report already `fixed` (PVR FR-FIX-4). It moves only that report and records `fixed_with`. If its reporter then says it is still broken, the report reopens and the pair becomes `not_duplicate`.
 - The agent can never trigger these transitions (no endpoint, DD-5).
 
 ### 2.11 How Do I (C16 + C7 overlay) — mock fidelity (D7)
@@ -395,7 +410,7 @@ Next.js app (App Router) talking to the backend's console API (`/v1/console/*`) 
 
 - **Queue (FR-ADM-1):** key, title, filed time, origin, status, confidence, linked count; filters by status/origin; keyboard-selectable rows.
 - **Report detail (FR-ADM-2):** first read with evidence-numbered citations; Breadcrumb waterfall (the prototype's `waterfall()` view, from the stored hops); trail-to-code links the agent recorded; agent session log (from audit + agent-posted notes); redacted bundle with Copy JSON; server-scrub warnings; the agent credential's Can/Can't list as enforced (rendered from the token's scopes, not from static text).
-- **Actions (J6):** take over (hands off from the agent, releasing its claim), reply to the reporter, mark deployed, re-run triage, link/unlink duplicates.
+- **Actions (J6):** take over (hands off from the agent, releasing its claim), reply to the reporter, mark deployed, re-run triage, link/unlink duplicates. *Proposed (2026-10-13, §2.6):* on a report handed off as `maybe_fixed`, two buttons — **Confirm fixed with linked report** (this report only → `fixed`, records `fixed_with`) and **Not the same** (unlink both ways, record `not_duplicate`, back to the agent). The duplicates panel lists `not_duplicate` pairs, with a person-only, audited "undo" (OQ-A20).
 - **Settings (FR-ADM-3):** capture window and limits, categories enabled, custom redaction rules (tested live against a sample bundle before saving), agent credentials and scopes, proactive-offer toggle (PVR OQ-8), trail header mode (OQ-A2), production environment name (DD-6), plain-language glossary.
 - **Audit log (FR-ADM-4):** filterable, exportable CSV.
 
@@ -432,7 +447,7 @@ erDiagram
 |---|---|---|
 | `tenant` | `id` (uuid7), `name` | Isolation boundary (PR-9). |
 | `app` | `id`, `tenant_id`, `public_id` (e.g. `tallyho`), `reporter_jwks` / signing secret ref, `settings` (jsonb), `key_seq` | Settings hold window, categories, trail mode, retention, glossary. |
-| `report` | `id` = `report_id` (uuid7, client-minted), `app_id`, `key` (`TH-0007`, unique per app), `reporter_ref` (opaque, from host token), `filed_from` (`button`/`assistant`), `filed_at`, `status`, `visible_status`, `signature`, `confidence`, `title`, `server_scrubbed` (jsonb), `closed_at`, `retain_until`, `deleted_at` | `status` is the internal state (§3.4). |
+| `report` | `id` = `report_id` (uuid7, client-minted), `app_id`, `key` (`TH-0007`, unique per app), `reporter_ref` (opaque, from host token), `filed_from` (`button`/`assistant`), `filed_at`, `status`, `visible_status`, `signature`, `confidence`, `title`, `server_scrubbed` (jsonb), `closed_at`, `retain_until`, `deleted_at`, `handoff_reason` (proposed: `maybe_fixed` among others), `fixed_with` (proposed: report ids[], set when a person confirms it fixed along with a Fixed report; cleared on reopen) | `status` is the internal state (§3.4). |
 | `bundle` | `report_id` (PK/FK), `schema`, `body` (jsonb, redacted), `sha256`, `ruleset_version_client`, `ruleset_version_server`, `bytes` | Separate table so retention/deletion can drop the body and keep the report row as a tombstone. |
 | `hop` | `id` (uuid7), `report_id`, `root`, `parent`, `service`, `op`, `start_ms`, `dur_ms`, `status`, `note`, `failing` (bool), `depth` | Denormalised from the bundle for the waterfall, duplicates and agent `get_trail`. |
 | `triage_run` | `id`, `report_id`, `model`, `prompt_version`, `input_tokens`, `output_tokens`, `latency_ms`, `outcome` (`ok`/`invalid`/`error`), `output` (jsonb), `error` | Every attempt kept for evals and cost (PVR risk). |
@@ -441,7 +456,7 @@ erDiagram
 | `claim` | `id`, `report_id`, `credential_id`, `leased_until`, `released_at`, `release_reason` | Partial unique index: one active claim per report. |
 | `repro_result` | `id`, `report_id`, `result`, `reason`, `command`, `duration_ms`, `test_files` | FR-FIX-1. |
 | `fix_pr` | `id`, `report_id`, `repo`, `number`, `head_sha`, `merge_sha`, `state` | FR-FIX-2, DD-6. |
-| `duplicate_link` | `report_id`, `other_id`, `linked_by`, `at` | Symmetric pair; never merges reports. |
+| `duplicate_link` | `report_id`, `other_id`, `kind` (proposed: `duplicate` \| `not_duplicate`), `linked_by`, `at` | Symmetric pair; never merges reports. Proposed (2026-10-13, §2.6): one row per unordered pair (stored with `report_id < other_id`, unique), so "not the same" is a `kind` change, not a second table. `not_duplicate` is written by a person's "Not the same" or by a reporter rejecting a fix confirmed via `fixed_with`; duplicate candidate queries exclude any pair with a `not_duplicate` row, in both directions. Only a console person can remove one (OQ-A20). |
 | `agent_credential` | `id`, `app_id`, `token_hash`, `scopes[]`, `created_by`, `revoked_at` | FR-PERM-1…4. |
 | `redaction_rule` | `id`, `app_id`, `kind` (`path`/`regex`/`key`), `pattern`, `label` | FR-ADM-3, FR-CAP-7. |
 | `guide`, `hdi_question` | guide JSON; question text (redacted), `matched_guide`, `at` | FR-HDI-2, -5. |
@@ -509,6 +524,9 @@ stateDiagram-v2
   in_progress --> handed_to_person: agent hands off
   looking_into_it --> handed_to_person: person takes over
   handed_to_person --> fix_proposed: person links PR
+  looking_into_it --> handed_to_person: linked to a fixed report (maybe_fixed, proposed)
+  handed_to_person --> fixed: person confirms duplicate of a deployed fix (person only, proposed)
+  handed_to_person --> looking_into_it: not the same, back to the agent, or automatic when the linked fixed report reopens (proposed)
   fix_proposed --> fix_merged: PR merged webhook
   fix_proposed --> in_progress: PR closed unmerged
   fix_merged --> fixed: deploy signal or person marks deployed
@@ -519,10 +537,22 @@ stateDiagram-v2
   note right of fixed
     Only webhooks or a person can enter fixed.
     The agent has no endpoint for it.
+    Reopen after a person-confirmed duplicate
+    records the pair as not_duplicate.
   end note
 ```
 
 Claims: an agent can claim from `looking_into_it` or `triage_failed` only. `received` and `triaging` have no agent claim path while automatic triage is on (PVR OQ-13); a stuck one is handled from the console (re-run triage). If OQ-13 is answered "triage only on agent pull", `received --> in_progress: agent claims` replaces the automatic `received --> triaging` path.
+
+Duplicate-of-Fixed transitions (proposed 2026-10-13, §2.6; not principal decisions):
+
+| From → to | Who | When | Side effects |
+|---|---|---|---|
+| `looking_into_it` / `in_progress` → `handed_to_person` | system (triage link) / agent (`hand_off`) | the confirmed duplicate is `fixed`/`closed` | `handoff_reason = maybe_fixed`; reporter not told it is fixed |
+| `handed_to_person` → `fixed` | a person (console) only | "Confirm fixed with linked report" | this report only (OQ-A19); `fixed_with` set; reporter told a person checked |
+| `handed_to_person` → `looking_into_it` | a person (console) | "Not the same" | unlinked both ways; `not_duplicate` row; back to the agent |
+| `handed_to_person` → `looking_into_it` | system | the linked Fixed report reopens and no linked report is still `fixed` | back to the agent; no `not_duplicate` row |
+| `fixed` → `reopened` (existing edge) | reporter | "still broken" on a report with `fixed_with` | each `fixed_with` pair unlinked and recorded `not_duplicate`; `fixed_with` cleared |
 
 Reporter-visible mapping (FR-TRK-1):
 
@@ -988,6 +1018,7 @@ The service dogfoods Breadcrumb: every request, job and webhook gets a hop; logs
 | DD-6 | Fix merged by PR webhook; Fixed by deploy signal or a person | §2.10 |
 | DD-7 | pg-boss job queue on the same Postgres | §2.5, §6, §7 |
 | DD-8 | Self-hostable compose stack first | §12 |
+| DD-9 | A duplicate of a Fixed report goes to a person, never to `fixed` by itself; a person's "not the same" is a permanent `not_duplicate` row (`kind` on `duplicate_link`) excluded from every candidate query (proposed 2026-10-13, from the prototype) | §2.6, §3.1, §3.4 |
 
 ---
 
@@ -1116,12 +1147,12 @@ Component numbers refer to §1.2. "Test" refers to §14.
 | FR-TRI-4 | C10, C11 | §2.6 lint, §2.9 | Lint tests, evals |
 | FR-TRI-5 | C10, C12 | §2.6, §4.2 (409) | Unit, contract |
 | FR-TRI-6 | C10 | §2.6, F3/F4 | Fault-injection test |
-| FR-TRI-7 | C10, C11 | §2.6 signature | Unit, evals |
+| FR-TRI-7 | C10, C11, C12, C17 | §2.6 signature, §2.6 duplicates of a Fixed report, §3.1 `duplicate_link.kind`, DD-9 | Unit, evals; state machine test (maybe_fixed hand-off, not_duplicate excluded both ways, auto-release on reopen) |
 | FR-TRI-8 | C13 | §2.7 skill rules; DD-6 | Agent dry run, honesty evals |
 | FR-FIX-1 | C14, C12 | §2.8 | Agent dry run |
 | FR-FIX-2 | C13, C15 | §2.7, §2.10 | Agent dry run |
 | FR-FIX-3 | C12, C13, GitHub | §9.4 | Contract + dry run (merge fails) |
-| FR-FIX-4 | C15, C11 | DD-6 | Webhook integration tests |
+| FR-FIX-4 | C15, C11, C17 | DD-6, DD-9 (person confirms duplicate of a deployed fix) | Webhook integration tests; console e2e (confirm moves this report only; reporter "still broken" records not_duplicate) |
 | FR-FIX-5 | C13, C14 | §2.8 | Dry run (PR cites test) |
 | FR-FIX-6 | C12, C13 | §4.2 handoff | Contract |
 | FR-PERM-1 | C12, C17 | DD-5 | Scope matrix test |
@@ -1197,6 +1228,12 @@ Each has a recommended answer in context. None is a principal decision yet.
 16. **OQ-A16** SSE auth: `EventSource` can't send headers (§2.9). — *Rec: fetch-stream with header auth; polling fallback.*
 17. **OQ-A17** Closed-without-fix and stalled-state transitions (§3.4; PVR OQ-28/29). — *Rec: person-closed with reason; 7-day requeue; 14-day auto-close.*
 
+Added from the prototype's duplicate handling (2026-10-13):
+
+18. **OQ-A18** Fixed/closed reports as duplicate candidates (§2.6; PVR OQ-37). — *Rec: yes, 30-day window; always routed to a person.*
+19. **OQ-A19** Does "Confirm fixed with linked report" fan out to other linked open reports? (§2.6, §3.4; PVR OQ-38) — *Rec: no, only the report checked.*
+20. **OQ-A20** Who can remove a `not_duplicate` row? (§2.6, §3.1, §2.12; PVR OQ-39) — *Rec: a console person only, audited.*
+
 **If PVR assumptions go the other way:**
 - PVR OQ-12 → hosted agent: §2.7–§2.8 gain a runner service with repo credentials and managed sandboxes; DD-5 still holds but the GitHub credential moves to the service.
 - PVR OQ-13 → triage only on agent pull: §2.6 becomes an MCP-invoked step; the agent claims `received` reports directly (§2.7, §3.4); NFR-4 / SM-3 can't be met without an agent running.
@@ -1223,7 +1260,7 @@ A&D Completeness (Rev 1 draft):
 7. Failure Modes            ✓ Complete (§10; F1–F16)
 8. Security Considerations  ✓ Complete (§9; consent, redaction incl. How Do I and answers, Can/Can't enforcement, injection incl. social engineering)
 9. Deployment & Operations  ~ Partial (§11, §12; hosting target OQ-A12)
-10. Open Technical Questions 16 remaining (§17; 4 added by completeness review; OQ-A13 resolved)
+10. Open Technical Questions 19 remaining (§17; 4 added by completeness review, 3 from the prototype's duplicate handling; OQ-A13 resolved)
 
 Testing (§14, added section): prototype harness (§14.0), NFR-5 e2e (§14.3), instrumentation tests (§14.7); NFR-1 profile waits on PVR OQ-36.
 

@@ -462,7 +462,7 @@ await section(async () => {
   const P = load(), {ev} = P; await ready(P);
   P.click('#ctl-bang'); P.click('#send');
   const fields = ['key', 'bundle', 'removed', 'masked', 'diag', 'origin', 't', 'captureMs', 'status', 'updates', 'unseen', 'confirmed', 'term', 'linked',
-    'triage', 'triageErr', 'prompt', 'candidates', 'question', 'awaiting', 'answer', 'handed', 'thinking', 'stream', 'abort', 'pr', 'chat', 'toldFixed'];
+    'triage', 'triageErr', 'prompt', 'candidates', 'question', 'awaiting', 'answer', 'handed', 'handReason', 'follows', 'notSame', 'confirmedWith', 'thinking', 'stream', 'abort', 'pr', 'chat', 'toldFixed'];
   const missing = fields.filter(f => !ev(`Object.hasOwn(reports[0], "${f}")`));
   eq(missing.join(','), '', 'P22: addReport initialises every field');
 });
