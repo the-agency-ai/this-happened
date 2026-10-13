@@ -144,11 +144,10 @@ td.num{font-variant-numeric:tabular-nums;text-align:right}th.num{text-align:righ
 /* report drawer */
 .drawer{position:absolute;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--surface);border-left:1px solid var(--line);box-shadow:-12px 0 40px rgba(0,0,0,.18);display:flex;flex-direction:column;z-index:12}
 .dr-head{position:relative;padding:16px 52px 12px 20px;border-bottom:1px solid var(--line);display:grid;gap:6px}
-/* one close control for This Happened! and How do I: same glyph, size and colour as the assistant's */
-.dr-head .x,.hdi-h .x{border:0;background:transparent;font-size:20px;line-height:1;color:var(--muted);padding:2px 6px;border-radius:6px}
-.dr-head .x:hover,.hdi-h .x:hover{color:var(--ink);background:var(--sunk)}
+/* the drawer's close control matches the assistant's × */
+.dr-head .x{border:0;background:transparent;font-size:20px;line-height:1;color:var(--muted);padding:2px 6px;border-radius:6px}
+.dr-head .x:hover{color:var(--ink);background:var(--sunk)}
 .dr-head .x{position:absolute;top:14px;right:14px}
-.hdi-h .x{margin-left:auto}
 .dr-head h3{font-size:24px;font-weight:800;font-stretch:115%;display:flex;gap:10px;align-items:center}
 .dr-head p{color:var(--muted);font-size:14px}
 .dr-body{padding:14px 20px;overflow-y:auto;display:grid;gap:12px;align-content:start;flex:1}
@@ -168,7 +167,6 @@ textarea{width:100%;min-height:76px;resize:vertical;border:1px solid var(--line)
 .dr-foot{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
 .btn-send{background:var(--marker);color:var(--marker-ink);border:0;border-radius:9px;padding:10px 18px;font-weight:700}
 .drawer[hidden],.app-toast[hidden]{display:none}
-.btn-cancel{background:transparent;border:1px solid var(--line);border-radius:9px;padding:10px 16px}
 
 .app{position:relative}
 @container (max-width: 900px){
@@ -481,7 +479,6 @@ textarea{width:100%;min-height:76px;resize:vertical;border:1px solid var(--line)
           <p class="redact" id="redact"></p>
         </div>
         <div class="dr-foot">
-          <button class="btn-cancel" id="cancel">Cancel</button>
           <button class="btn-send" id="send">Send report</button>
         </div>
       </aside>
@@ -759,7 +756,8 @@ $('#composer').addEventListener('submit', e => {
   const v = $('#chatin').value.trim(); if (!v) return;
   $('#chatin').value = ''; userSays(v);
 });
-$('#asst-x').addEventListener('click', () => setAsst(false));
+// The assistant's × also closes How do I: it stops any walkthrough, run or question in progress.
+$('#asst-x').addEventListener('click', () => { if (typeof hdiReset === 'function') hdiReset(); HDI.closedAsst = false; $('#asst-mode').textContent = ''; setAsst(false); });
 $('#ctl-q').addEventListener('click', () => {
   setAsst(true);
   $('#asst-mode').textContent = '· How do I…?';
@@ -967,7 +965,7 @@ function hdiOpen({task = null, q = ''} = {}) {
   msgs.querySelectorAll('.hdi').forEach(c => c.remove());
   Object.assign(HDI, {q, task:null, last:null, undo:[]});
   HDI.card = addHTML(`<div class="hdi" role="group" aria-label="How do I">
-    <div class="hdi-h"><b>How do I…?</b><span class="chip hdi-live" hidden title="Your question is answered by Claude">Claude</span><button class="x" data-hdi="close" aria-label="Close How do I">×</button></div>
+    <div class="hdi-h"><b>How do I…?</b><span class="chip hdi-live" hidden title="Your question is answered by Claude">Claude</span></div>
     <form class="hdi-q"><label for="hdi-in" class="sr">Ask how to do something in Tallyho</label>
       <input id="hdi-in" class="hdi-in" autocomplete="off" placeholder="For example: charge a late fee">
       <button type="submit" class="btn-b">Ask</button><button type="button" class="btn-o" data-hdi="stop-ask" hidden>Stop</button></form>
@@ -1265,13 +1263,6 @@ function hdiReport(why) {
   openDrawer({origin:'button', note:parts.join(' ')});
 }
 
-function hdiClose() {
-  hdiReset(); hdiRestore();
-  act(live, Date.now(), 'click', 'How do I: close');
-  HDI.card?.remove(); HDI.card = null; HDI.task = null;
-  $('#asst-mode').textContent = '';
-  $('#chatin').focus({preventScroll:true});
-}
 function hdiAct(a, btn) {
   if (a === 'task') return hdiPick(btn.dataset.id);
   if (a === 'show') return hdiShow(HDI.task);
@@ -1287,7 +1278,6 @@ function hdiAct(a, btn) {
   if (a === 'stop-ask') return HDI.ctl?.abort();
   if (a === 'retry') return hdiAsk(HDI.q);
   if (a === 'scripted') { hdiQ('.hdi-err').hidden = true; hdiStatus(''); return hdiScripted(HDI.q); }
-  if (a === 'close') return hdiClose();
   if (a === 'helpful') {
     act(live, Date.now(), 'click', 'How do I: helpful', HDI.last?.title || '');
     hdiQ('.hdi-foot').textContent = 'Thanks for telling us.';
@@ -1492,7 +1482,6 @@ function updateRedact() {
 $('#note').addEventListener('input', () => pending && updateRedact());
 $('#ctl-bang').addEventListener('click', () => openDrawer({origin:'button'}));
 function closeDrawer() { $('#drawer').hidden = true; pending = null; }
-$('#cancel').addEventListener('click', closeDrawer);
 $('#dr-x').addEventListener('click', closeDrawer);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#drawer').hidden && !HDI.tour && !HDI.run) { e.preventDefault(); closeDrawer(); } });
 $('#send').addEventListener('click', () => {
